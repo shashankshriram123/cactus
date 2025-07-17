@@ -1,0 +1,17 @@
+.board {
+  display: flex;
+  background: #0e0e0f;                           /* near-black */
+  background-image: radial-gradient(#1f1f1f 1px, transparent 0);
+  background-size: 24px 24px;                   /* dot spacing */
+}
+
+/* make sure inner panes don’t cover the board bg */
+.board-pane {
+  background: transparent;
+}
+
+/* if Sidebar has its own solid bg,
+   comment-out the line below to keep it dark too */
+.sidebar-dark {
+  background: transparent;
+}
