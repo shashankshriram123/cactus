@@ -1,27 +1,19 @@
-// components/ThreadTree.tsx
+// src/components/ThreadTree.tsx
+import { commitsToGraph } from '../utils/commitsToGraph';
+import TreeGraph from './TreeGraph';
+import { useDemoThread } from '../store/useDemoThread';
 
-import React, { useEffect, useState } from 'react';
-import { TreeGraph } from './TreeGraph';
-import type { TreeNode, TreeEdge } from './TreeGraph/types';
+export default function ThreadTree() {
+  const { commits, addCommit, addBranch } = useDemoThread();
+  const { nodes, edges } = commitsToGraph(commits);
 
-export const ThreadTree: React.FC = () => {
-  const [nodes, setNodes] = useState<TreeNode[]>([]);
-  const [edges, setEdges] = useState<TreeEdge[]>([]);
-
-  useEffect(() => {
-    // TODO: fetch or compute your thread/commit data
-    const commits = [
-      { id: 'a', label: 'Init' },
-      { id: 'b', label: 'Feature' },
-      { id: 'c', label: 'Fix' },
-    ];
-    const rels = [
-      { id: 'e1', source: 'a', target: 'b' },
-      { id: 'e2', source: 'b', target: 'c' },
-    ];
-    setNodes(commits);
-    setEdges(rels);
-  }, []);
-
-  return <TreeGraph nodes={nodes} edges={edges} />;
-};
+  return (
+    <TreeGraph
+      nodes={nodes}
+      edges={edges}
+      onConnect={(sourceId, sameBranch) =>
+        sameBranch ? addCommit(sourceId) : addBranch(sourceId)
+      }
+    />
+  );
+}

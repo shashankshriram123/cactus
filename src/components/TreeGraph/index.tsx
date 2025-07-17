@@ -1,92 +1,65 @@
 // src/components/TreeGraph/index.tsx
-import React, { useCallback } from 'react';
+import React, { useMemo } from 'react';
 import ReactFlow, {
-  addEdge,
-  Background,
-  Controls,
   ConnectionLineType,
+  Controls,
 } from 'reactflow';
-import type {
-  Edge as RFEdge,
-  Node as RFNode,
-  ReactFlowInstance,
-} from 'reactflow';
+import type { Edge as RFEdge, Node as RFNode, Connection } from 'reactflow';
+
+import { CommitNode } from './CommitNode';
+import { useLaneLayout } from '../../hooks/useLaneLayout';
+import { colorForBranch } from '../../constants/lanes';
 
 import 'reactflow/dist/style.css';
 import './styles.css';
 
-import type { TreeNode, TreeEdge } from './types';
-import { useTreeLayout } from '../../hooks/useTreeLayout';
+const nodeTypes = { commit: CommitNode };
 
 interface Props {
-  nodes: TreeNode[];
-  edges: TreeEdge[];
-  onConnect?: (edge: RFEdge) => void;
+  nodes: any[];
+  edges: any[];
+  onConnect?: (sourceId: string, sameBranch: boolean) => void;
 }
 
-export const TreeGraph: React.FC<Props> = ({ nodes, edges, onConnect }) => {
-  /* ---------- layout ---------- */
-  const { nodes: laidOut, edges: laidEdges } = useTreeLayout(nodes, edges, {
-    direction: 'vertical',
-    gapX: 120,
-    gapY: 100,
-  });
+export default function TreeGraph({ nodes, edges, onConnect }: Props) {
+  const { nodes: laid, edges: same } = useLaneLayout(nodes, edges);
+  const rfNodeTypes = useMemo(() => nodeTypes, []);
 
-  /* ---------- map to React Flow ---------- */
-  const rfNodes: RFNode[] = laidOut.map((n) => ({
+  const rfNodes: RFNode[] = laid.map((n) => ({
     id: n.id,
-    data: { label: n.label },
-    position: n.position!,
-    style: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      background: '#64D2A6',
-      color: '#fff',
-      border: '2px solid #fff',
-    },
+    type: 'commit',
+    position: n.position,
+    data: n,
   }));
 
-  const rfEdges: RFEdge[] = laidEdges.map((e) => ({
+  const rfEdges: RFEdge[] = same.map((e) => ({
     id: e.id,
     source: e.source,
     target: e.target,
     type: 'smoothstep',
-    animated: false,
-    style: { stroke: '#F2B138', strokeWidth: 4 },
+    style: { stroke: colorForBranch(e.branch), strokeWidth: 6 },
   }));
 
-  /* ---------- handlers ---------- */
-  const onInit = useCallback((instance: ReactFlowInstance) => {
-    instance.fitView({ padding: 0.1 });
-  }, []);
-
-  const handleConnect = useCallback(
-    (params) => {
-      if (onConnect) onConnect(params as RFEdge);
-      else addEdge(params, rfEdges);
-    },
-    [onConnect, rfEdges],
-  );
-
-  /* ---------- render ---------- */
   return (
     <div className="tree-graph-wrapper">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
-        onInit={onInit}
-        onConnect={handleConnect}
+        nodeTypes={rfNodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
+        onConnect={(params: Connection) => {
+          if (onConnect && params.source) {
+            const sameLane = params.target != null; // dropped on node = same branch
+            onConnect(params.source, sameLane);
+          }
+        }}
         fitView
-        nodesDraggable={false}
-        nodesConnectable={false}
-        zoomOnScroll
         panOnScroll
+        nodesDraggable={false}
+        nodesConnectable
       >
-        <Background gap={16} />
         <Controls showFitView />
       </ReactFlow>
     </div>
   );
-};
+}

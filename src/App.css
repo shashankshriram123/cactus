@@ -1,17 +1,33 @@
+/* ①: ensure the flex container itself is full-height */
 .board {
   display: flex;
-  background: #0e0e0f;                           /* near-black */
+  height: 100%;
+
+  /* dotted grid */
+  background: #0e0e0f;
   background-image: radial-gradient(#1f1f1f 1px, transparent 0);
-  background-size: 24px 24px;                   /* dot spacing */
+  background-size: 24px 24px;
 }
 
-/* make sure inner panes don’t cover the board bg */
+/* ②: right-hand pane inside the board */
 .board-pane {
+  flex: 1 1 0;      /* grow + shrink */
+  height: 100%;     /* <-- critical for React-Flow */
   background: transparent;
 }
 
-/* if Sidebar has its own solid bg,
-   comment-out the line below to keep it dark too */
-.sidebar-dark {
+/* ③: wrapper around the <ReactFlow> element */
+.tree-graph-wrapper {
+  width: 100%;
+  height: 100%;     /* <-- critical for React-Flow */
+  position: relative;
   background: transparent;
+}
+
+/* ④: belt-and-suspenders – top-level root always has height */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
 }
