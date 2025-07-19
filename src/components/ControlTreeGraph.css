@@ -1,15 +1,17 @@
-.graph-container {
-  width: 100%;
-  height: 100%;
+/* Update the container to be flexible */
+.canvas-container {
+  flex-grow: 1; /* Make it fill the remaining space */
   position: relative;
+  width: 100%;
+  height: 100%; /* Important for getBoundingClientRect */
 }
 
+/* The rest of this file is identical to the previous version */
 .graph-canvas {
-  display: block; /* Important for removing small gaps */
+  display: block;
   width: 100%;
   height: 100%;
 }
-
 .controls-overlay {
   position: absolute;
   bottom: 0;
@@ -22,19 +24,13 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  /* Fades from transparent to a solid background for a cleaner look */
   background: linear-gradient(to top, rgba(30, 30, 30, 0.9), rgba(30, 30, 30, 0));
-  pointer-events: none; /* Allows clicks to go through the overlay background */
+  pointer-events: none;
 }
-
-/* Make buttons clickable again */
 .controls-overlay > button {
   pointer-events: auto;
 }
-
-/* Re-using the same button styles as before */
-.btn,
-.btn-danger {
+.btn, .btn-danger {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-weight: bold;
@@ -43,25 +39,8 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
-
-.btn {
-  background-color: #3b82f6;
-}
-
-.btn:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.btn-danger {
-  background-color: #dc2626;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #b91c1c;
-}
-
-.btn:disabled,
-.btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn { background-color: #3b82f6; }
+.btn:hover:not(:disabled) { background-color: #2563eb; }
+.btn-danger { background-color: #dc2626; }
+.btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
+.btn:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -1,46 +1,53 @@
-// components/Sidebar.tsx
-import type { Thread } from '../models/types';
+import React from 'react';
+import type { SerializableGraphState } from "../types";
 
-interface Props {
-  threads?: Thread[];          // ← make optional
-  selectedId?: string | null;
-  setSelectedId?: (id: string) => void;
-  onAdd?: () => void;
+
+interface SidebarProps {
+  graphs: SerializableGraphState[];
+  activeGraphId: string | null;
+  onSelectGraph: (id: string) => void;
+  onNewGraph: () => void;
+  onDeleteGraph: (id: string) => void;
+  isOpen: boolean;
 }
 
-export default function Sidebar({
-  threads = [],               // ← default to empty array
-  selectedId = null,
-  setSelectedId = () => {},
-  onAdd = () => {},
-}: Props) {
+export const Sidebar: React.FC<SidebarProps> = ({
+  graphs,
+  activeGraphId,
+  onSelectGraph,
+  onNewGraph,
+  onDeleteGraph,
+  isOpen,
+}) => {
   return (
-    <aside className="w-64 bg-zinc-800 border-r border-zinc-700 p-4">
-      <button
-        className="text-white mb-4 w-full text-left font-semibold"
-        onClick={onAdd}
-      >
-        + new thread
-      </button>
-
-      <h2 className="text-sm text-zinc-400 mb-2">Threads</h2>
-
-      <ul className="space-y-1">
-        {threads.map((thread) => (
-          <li key={thread.id}>
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <div className="sidebar-header">
+        <button className="new-graph-btn" onClick={onNewGraph}>
+          + New Tree
+        </button>
+      </div>
+      <div className="sidebar-content">
+        {graphs.map((graph) => (
+          <div
+            key={graph.id}
+            className={`sidebar-item ${graph.id === activeGraphId ? 'active' : ''}`}
+            onClick={() => onSelectGraph(graph.id)}
+          >
+            <span className="sidebar-item-name">{graph.name}</span>
             <button
-              className={`w-full text-left px-2 py-1 rounded ${
-                selectedId === thread.id
-                  ? 'bg-zinc-700 text-white'
-                  : 'hover:bg-zinc-700 text-zinc-300'
-              }`}
-              onClick={() => setSelectedId(thread.id)}
+              className="delete-btn"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent item selection
+                if (window.confirm(`Are you sure you want to delete "${graph.name}"?`)) {
+                  onDeleteGraph(graph.id);
+                }
+              }}
             >
-              {thread.title || 'Untitled Thread'}
+              🗑️
             </button>
-          </li>
+          </div>
         ))}
-      </ul>
-    </aside>
+      </div>
+    </div>
   );
-}
+};
