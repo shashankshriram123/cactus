@@ -1,33 +1,9 @@
-/* ①: ensure the flex container itself is full-height */
-.board {
-  display: flex;
-  height: 100%;
-
-  /* dotted grid */
-  background: #0e0e0f;
-  background-image: radial-gradient(#1f1f1f 1px, transparent 0);
-  background-size: 24px 24px;
-}
-
-/* ②: right-hand pane inside the board */
-.board-pane {
-  flex: 1 1 0;      /* grow + shrink */
-  height: 100%;     /* <-- critical for React-Flow */
-  background: transparent;
-}
-
-/* ③: wrapper around the <ReactFlow> element */
-.tree-graph-wrapper {
-  width: 100%;
-  height: 100%;     /* <-- critical for React-Flow */
-  position: relative;
-  background: transparent;
-}
-
-/* ④: belt-and-suspenders – top-level root always has height */
-html,
-body,
-#root {
-  height: 100%;
+/* Add this to your main index.css or App.css */
+body, html, #root {
   margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden; /* Prevents scrollbars */
+  background-color: #1e1e1e; /* Sets the background for the whole page */
 }
