@@ -48,7 +48,6 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // This ref holds all the live, non-React state of the canvas
   const liveGraph = useRef<{
     branches: GraphBranch[];
     nodes: Map<number, GraphNode>;
@@ -61,7 +60,6 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
     state: null
   });
 
-  // This hook exposes the component's public API to parent components
   useImperativeHandle(ref, () => ({
     serialize: () => {
       const { branches, nodes, camera, state } = liveGraph.current;
@@ -91,7 +89,6 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
 
       return { ...updatedState, camera, nodes: serializableNodes, branches: serializableBranches, branchOrder };
     },
-    // Expose all control functions
     createSubBranch: () => (canvasRef.current as any)?.createSubBranch(),
     expandBranch: () => (canvasRef.current as any)?.expandBranch(),
     collapseSelected: () => (canvasRef.current as any)?.collapseSelected(),
@@ -119,9 +116,16 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         let mouseDownPos: { x: number; y: number } | null = null;
         let didDrag = false;
         
-        const GRID_SPACING = 60, NODE_RADIUS = 8, NODE_SELECTED_RADIUS = 10, BRANCH_WIDTH = 4;
+        const GRID_SPACING = 60;
+        const NODE_RADIUS = 8;
+        const NODE_SELECTED_RADIUS = 10;
+        const BRANCH_WIDTH = 4;
         const BRANCH_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
         
+        // --- Define the slope for new sub-branches ---
+        const NODE_SLOPE_Y = -GRID_SPACING; 
+        const NODE_SLOPE_X = GRID_SPACING * 0.5;
+
         class NodeImpl implements GraphNode {
             id: number; x: number; y: number; branch: GraphBranch; isHead: boolean; isHidden: boolean;
             constructor(id: number, x: number, y: number, branch: GraphBranch, isHead: boolean = false) { this.id = id; this.x = x; this.y = y; this.branch = branch; this.isHead = isHead; this.isHidden = false; }
@@ -260,8 +264,36 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         }
         
         const getNextColor = () => { const state = liveGraph.current.state!; const color = BRANCH_COLORS[state.nextColorIndex]; state.nextColorIndex = (state.nextColorIndex + 1) % BRANCH_COLORS.length; return color; }
-        const createSubBranch = () => { if (!localSelectedNode || liveGraph.current.branches.some(b => b.parentNode === localSelectedNode)) return; const parentNode = localSelectedNode; const state = liveGraph.current.state!; const newBranch = new BranchImpl(state.nextBranchId++, getNextColor(), parentNode); const newNode = new NodeImpl(state.nextNodeId++, parentNode.x + GRID_SPACING, parentNode.y, newBranch, true); newBranch.addNode(newNode); liveGraph.current.branches.push(newBranch); liveGraph.current.nodes.set(newNode.id, newNode); relayout(); selectNode(newNode); };
-        const expandBranch = () => { if (!localSelectedNode || !localSelectedNode.isHead) return; const headNode = localSelectedNode; const branch = headNode.branch; const state = liveGraph.current.state!; headNode.isHead = false; const newHeadNode = new NodeImpl(state.nextNodeId++, headNode.x, headNode.y - GRID_SPACING, branch, true); branch.addNode(newHeadNode); liveGraph.current.nodes.set(newHeadNode.id, newHeadNode); relayout(); selectNode(newHeadNode); };
+        
+        // --- Sub-branches are created at an angle ---
+        const createSubBranch = () => { 
+            if (!localSelectedNode || liveGraph.current.branches.some(b => b.parentNode === localSelectedNode)) return; 
+            const parentNode = localSelectedNode; 
+            const state = liveGraph.current.state!; 
+            const newBranch = new BranchImpl(state.nextBranchId++, getNextColor(), parentNode); 
+            const newNode = new NodeImpl(state.nextNodeId++, parentNode.x + NODE_SLOPE_X, parentNode.y + NODE_SLOPE_Y, newBranch, true); 
+            newBranch.addNode(newNode); 
+            liveGraph.current.branches.push(newBranch); 
+            liveGraph.current.nodes.set(newNode.id, newNode); 
+            relayout(); 
+            selectNode(newNode); 
+        };
+        
+        // --- UPDATED: Head expansions are now vertical ---
+        const expandBranch = () => { 
+            if (!localSelectedNode || !localSelectedNode.isHead) return; 
+            const headNode = localSelectedNode; 
+            const branch = headNode.branch; 
+            const state = liveGraph.current.state!; 
+            headNode.isHead = false; 
+            // New node is positioned vertically above the old head
+            const newHeadNode = new NodeImpl(state.nextNodeId++, headNode.x, headNode.y - GRID_SPACING, branch, true); 
+            branch.addNode(newHeadNode); 
+            liveGraph.current.nodes.set(newHeadNode.id, newHeadNode); 
+            relayout(); 
+            selectNode(newHeadNode); 
+        };
+        
         const foldSelected = () => { if (!localSelectedNode) return; getDescendantBranches(localSelectedNode, liveGraph.current.branches).forEach(b => { b.isHidden = true; b.nodes.forEach(n => n.isHidden = true); }); relayout(); selectNode(localSelectedNode); };
         const collapseSelected = () => { if (!localSelectedNode || localSelectedNode.isHead) return; const branch = localSelectedNode.branch; const nodesToHide = branch.nodes.filter(node => node.y < localSelectedNode!.y); nodesToHide.forEach(node => { node.isHidden = true; getDescendantBranches(node, liveGraph.current.branches).forEach(b => { b.isHidden = true; b.nodes.forEach(n => n.isHidden = true); }); }); localSelectedNode.isHead = true; relayout(); selectNode(localSelectedNode); };
         const unfoldSelected = () => { if (!localSelectedNode) return; getDescendantBranches(localSelectedNode, liveGraph.current.branches).forEach(b => { b.isHidden = false; b.nodes.forEach(n => n.isHidden = false); }); const branch = localSelectedNode.branch; branch.nodes.forEach(n => { n.isHidden = false; n.isHead = false; }); if (branch.nodes.length > 0) { const topNode = branch.nodes.reduce((prev, curr) => prev.y < curr.y ? prev : curr); topNode.isHead = true;} relayout(); selectNode(localSelectedNode); };
@@ -310,7 +342,7 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         const funcs: Record<string, () => void> = { createSubBranch, expandBranch, foldSelected, collapseSelected, unfoldSelected, deleteSelectedChildren, deleteSelectedExtension, deleteSelectedNode };
         Object.keys(funcs).forEach(key => { (canvas as any)[key] = funcs[key]; });
         
-        selectNode(null); // Set initial button state on load
+        selectNode(null);
 
         const resizeObserver = new ResizeObserver(entries => {
             if (!entries || entries.length === 0) return;
