@@ -1,0 +1,70 @@
+.dockable-window {
+  display: flex;
+  flex-direction: column;
+  background-color: #202123;
+  height: 100%;
+  overflow: hidden; /* Important for content */
+}
+
+.dockable-window.floating {
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border: 1px solid #555;
+  resize: both; /* Fallback resize */
+}
+
+.window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background-color: #2a2a2e;
+  color: #e5e7eb;
+  font-weight: 600;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.dockable-window.floating .window-header:active {
+  cursor: grabbing;
+}
+
+.window-title {
+  white-space: nowrap;
+}
+
+.window-toggle-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0 0.25rem;
+}
+.window-toggle-btn:hover {
+  color: white;
+}
+
+.window-content {
+  flex-grow: 1;
+  position: relative; /* For child absolute positioning */
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.resize-handle {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    right: 0;
+    bottom: 0;
+    cursor: nwse-resize;
+    background: repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.2),
+        rgba(255,255,255,0.2) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+}

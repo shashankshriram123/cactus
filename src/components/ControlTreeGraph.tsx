@@ -72,7 +72,10 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
       const branchOrder: number[] = [];
       branches.forEach(branch => {
         serializableBranches[branch.id] = {
-          id: branch.id, color: branch.color, nodeIds: branch.nodes.map(n => n.id),
+          id: branch.id,
+          label: branch.label, // Include label in serialization
+          color: branch.color, 
+          nodeIds: branch.nodes.map(n => n.id),
           parentNodeId: branch.parentNode?.id ?? null,
         };
         branchOrder.push(branch.id);
@@ -111,6 +114,10 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         if (!ctx) return;
         
         let localSelectedNode: GraphNode | null = null;
+        let hoveredBranch: GraphBranch | null = null;
+        let hoverTimer: NodeJS.Timeout | null = null;
+        let mouseWorldPos = { x: 0, y: 0 };
+        let showCoords = false; // To control visibility of coordinates
         let isPanning = false; 
         let panStart = { x: 0, y: 0 };
         let mouseDownPos: { x: number; y: number } | null = null;
@@ -122,7 +129,6 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         const BRANCH_WIDTH = 4;
         const BRANCH_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
         
-        // --- Define the slope for new sub-branches ---
         const NODE_SLOPE_Y = -GRID_SPACING; 
         const NODE_SLOPE_X = GRID_SPACING * 0.5;
 
@@ -145,8 +151,8 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
             isClicked(pointX: number, pointY: number) { if (this.isHidden) return false; const distance = Math.sqrt(Math.pow(this.x - pointX, 2) + Math.pow(this.y - pointY, 2)); return distance < NODE_RADIUS * 1.5; }
         }
         class BranchImpl implements GraphBranch {
-            id: number; nodes: GraphNode[]; color: string; parentNode: GraphNode | null; isHidden: boolean;
-            constructor(id: number, color: string, parentNode: GraphNode | null = null) { this.id = id; this.nodes = []; this.color = color; this.parentNode = parentNode; this.isHidden = false; }
+            id: number; label: string; nodes: GraphNode[]; color: string; parentNode: GraphNode | null; isHidden: boolean;
+            constructor(id: number, label: string, color: string, parentNode: GraphNode | null = null) { this.id = id; this.label = label; this.nodes = []; this.color = color; this.parentNode = parentNode; this.isHidden = false; }
             addNode(node: GraphNode) { this.nodes.push(node); this.nodes.sort((a, b) => b.y - a.y); }
             draw() {
                 if (this.isHidden) return;
@@ -167,8 +173,25 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
             drawGrid();
             liveGraph.current.branches.forEach(branch => { if (!branch.isHidden) { branch.draw(); } });
             liveGraph.current.nodes.forEach(node => { if (!node.isHidden) { node.draw(); } });
+            
+            if (hoveredBranch) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = `${14 / camera.scale}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(hoveredBranch.label, mouseWorldPos.x, mouseWorldPos.y - 20 / camera.scale);
+            }
+
             ctx.restore();
+
+            // --- NEW: Draw coordinate tracker in screen space ---
+            if (showCoords) {
+                ctx.font = '12px sans-serif';
+                ctx.fillStyle = '#9ca3af'; // A light gray color
+                ctx.textAlign = 'left';
+                ctx.fillText(`X: ${mouseWorldPos.x.toFixed(1)}, Y: ${mouseWorldPos.y.toFixed(1)}`, 10, canvas.height - 10);
+            }
         };
+
         const drawGrid = () => {
             const { camera } = liveGraph.current;
             ctx.save();
@@ -182,17 +205,20 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
             for (let y = firstRow; y <= lastRow; y += GRID_SPACING) { ctx.beginPath(); ctx.moveTo(viewLeft, y); ctx.lineTo(viewRight, y); ctx.stroke(); }
             ctx.restore();
         };
+
         const getMousePos = (e: MouseEvent) => {
             const rect = canvas.getBoundingClientRect();
-            const worldX = (e.clientX - rect.left - liveGraph.current.camera.x) / liveGraph.current.camera.scale;
-            const worldY = (e.clientY - rect.top - liveGraph.current.camera.y) / liveGraph.current.camera.scale;
-            return { x: worldX, y: worldY };
+            mouseWorldPos = {
+                x: (e.clientX - rect.left - liveGraph.current.camera.x) / liveGraph.current.camera.scale,
+                y: (e.clientY - rect.top - liveGraph.current.camera.y) / liveGraph.current.camera.scale
+            };
+            return mouseWorldPos;
         };
 
         liveGraph.current.state = graphState;
         liveGraph.current.camera = { ...graphState.camera };
         const nodes = new Map<number, GraphNode>(); const branches = new Map<number, GraphBranch>();
-        for (const branchId of graphState.branchOrder) { const sBranch = graphState.branches[branchId]; branches.set(sBranch.id, new BranchImpl(sBranch.id, sBranch.color)); }
+        for (const branchId of graphState.branchOrder) { const sBranch = graphState.branches[branchId]; branches.set(sBranch.id, new BranchImpl(sBranch.id, sBranch.label, sBranch.color)); }
         Object.values(graphState.nodes).forEach(sNode => { const parentBranch = Array.from(branches.values()).find(b => graphState.branches[b.id].nodeIds.includes(sNode.id))!; const node = new NodeImpl(sNode.id, sNode.x, sNode.y, parentBranch, sNode.isHead); nodes.set(sNode.id, node); parentBranch.addNode(node); });
         branches.forEach(branch => { const sBranch = graphState.branches[branch.id]; if (sBranch.parentNodeId) { branch.parentNode = nodes.get(sBranch.parentNodeId) ?? null; } });
         liveGraph.current.nodes = nodes; liveGraph.current.branches = graphState.branchOrder.map(id => branches.get(id)!);
@@ -265,12 +291,12 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         
         const getNextColor = () => { const state = liveGraph.current.state!; const color = BRANCH_COLORS[state.nextColorIndex]; state.nextColorIndex = (state.nextColorIndex + 1) % BRANCH_COLORS.length; return color; }
         
-        // --- Sub-branches are created at an angle ---
         const createSubBranch = () => { 
             if (!localSelectedNode || liveGraph.current.branches.some(b => b.parentNode === localSelectedNode)) return; 
             const parentNode = localSelectedNode; 
             const state = liveGraph.current.state!; 
-            const newBranch = new BranchImpl(state.nextBranchId++, getNextColor(), parentNode); 
+            const newLabel = `Sub-branch ${state.nextBranchId}`;
+            const newBranch = new BranchImpl(state.nextBranchId++, newLabel, getNextColor(), parentNode); 
             const newNode = new NodeImpl(state.nextNodeId++, parentNode.x + NODE_SLOPE_X, parentNode.y + NODE_SLOPE_Y, newBranch, true); 
             newBranch.addNode(newNode); 
             liveGraph.current.branches.push(newBranch); 
@@ -279,14 +305,12 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
             selectNode(newNode); 
         };
         
-        // --- UPDATED: Head expansions are now vertical ---
         const expandBranch = () => { 
             if (!localSelectedNode || !localSelectedNode.isHead) return; 
             const headNode = localSelectedNode; 
             const branch = headNode.branch; 
             const state = liveGraph.current.state!; 
             headNode.isHead = false; 
-            // New node is positioned vertically above the old head
             const newHeadNode = new NodeImpl(state.nextNodeId++, headNode.x, headNode.y - GRID_SPACING, branch, true); 
             branch.addNode(newHeadNode); 
             liveGraph.current.nodes.set(newHeadNode.id, newHeadNode); 
@@ -335,8 +359,62 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(({ graphSta
         
         const handleMouseUp = (e: MouseEvent) => { if (!didDrag) { const worldPos = getMousePos(e); let clickedNode: GraphNode | null = null; for (const branch of liveGraph.current.branches) { if (!branch.isHidden) { for (const node of branch.nodes) { if (node.isClicked(worldPos.x, worldPos.y)) { clickedNode = node; break; } } } if (clickedNode) break; } selectNode(clickedNode); } isPanning = false; canvas.style.cursor = 'grab'; mouseDownPos = null; };
         const handleMouseDown = (e: MouseEvent) => {isPanning=false;didDrag=false;mouseDownPos={x:e.clientX,y:e.clientY};panStart.x=e.clientX-liveGraph.current.camera.x;panStart.y=e.clientY-liveGraph.current.camera.y};
-        const handleMouseMove = (e: MouseEvent) => {if(mouseDownPos){const dx=Math.abs(e.clientX-mouseDownPos.x);const dy=Math.abs(e.clientY-mouseDownPos.y);if(dx>5||dy>5){didDrag=true;isPanning=true;canvas.style.cursor='grabbing'}}if(isPanning){liveGraph.current.camera.x=e.clientX-panStart.x;liveGraph.current.camera.y=e.clientY-panStart.y;draw()}};
-        const handleMouseLeave = () => {isPanning=false;canvas.style.cursor='grab';mouseDownPos=null};
+        
+        const handleMouseMove = (e: MouseEvent) => {
+            showCoords = true;
+            getMousePos(e);
+            if(mouseDownPos){const dx=Math.abs(e.clientX-mouseDownPos.x);const dy=Math.abs(e.clientY-mouseDownPos.y);if(dx>5||dy>5){didDrag=true;isPanning=true;canvas.style.cursor='grabbing'}}
+            
+            if(isPanning){
+                liveGraph.current.camera.x = e.clientX - panStart.x;
+                liveGraph.current.camera.y = e.clientY - panStart.y;
+            } else {
+                if (hoverTimer) clearTimeout(hoverTimer);
+                
+                let potentialHoveredBranch: GraphBranch | null = null;
+                const hoverRadius = NODE_RADIUS * 2.5; 
+                for (const branch of liveGraph.current.branches) {
+                    if (branch.isHidden) continue;
+                    for (const node of branch.nodes) {
+                        if (node.isHidden) continue;
+                        const distance = Math.sqrt(Math.pow(node.x - mouseWorldPos.x, 2) + Math.pow(node.y - mouseWorldPos.y, 2));
+                        if (distance < hoverRadius) {
+                            potentialHoveredBranch = branch;
+                            break;
+                        }
+                    }
+                    if (potentialHoveredBranch) break;
+                }
+
+                if (potentialHoveredBranch) {
+                    hoverTimer = setTimeout(() => {
+                        if (potentialHoveredBranch !== hoveredBranch) {
+                            hoveredBranch = potentialHoveredBranch;
+                            draw();
+                        }
+                    }, 500);
+                } else {
+                    if (hoveredBranch) {
+                        hoveredBranch = null;
+                    }
+                }
+            }
+            // Always redraw to update coordinates
+            draw();
+        };
+
+        const handleMouseLeave = () => {
+            showCoords = false; // Hide coords when mouse leaves
+            isPanning=false;
+            canvas.style.cursor='grab';
+            mouseDownPos=null; 
+            if(hoverTimer) clearTimeout(hoverTimer);
+            if(hoveredBranch){
+                hoveredBranch=null; 
+            }
+            draw(); // Redraw one last time to clear everything
+        };
+
         const handleWheel = (e: WheelEvent) => { e.preventDefault(); const { camera } = liveGraph.current; const zoomSpeed=0.1,minZoom=0.2,maxZoom=3.0,oldScale=camera.scale; const mousePos={x:e.clientX-canvas.getBoundingClientRect().left,y:e.clientY-canvas.getBoundingClientRect().top}; const zoomDirection=e.deltaY<0?1:-1; camera.scale+=zoomDirection*zoomSpeed*camera.scale; camera.scale=Math.max(minZoom,Math.min(camera.scale,maxZoom)); camera.x=mousePos.x-((mousePos.x-camera.x)/oldScale)*camera.scale; camera.y=mousePos.y-((mousePos.y-camera.y)/oldScale)*camera.scale; draw(); };
         
         const funcs: Record<string, () => void> = { createSubBranch, expandBranch, foldSelected, collapseSelected, unfoldSelected, deleteSelectedChildren, deleteSelectedExtension, deleteSelectedNode };

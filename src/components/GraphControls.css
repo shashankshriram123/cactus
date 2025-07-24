@@ -1,43 +1,137 @@
-.controls-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  padding: 1rem;
-  box-sizing: border-box;
+/* Reset and Fullscreen */
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #1e1e1e;
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* App Layout */
+.app-container {
   display: flex;
-  justify-content: center;
+  height: 100vh;
+}
+
+/* --- CORRECTED SIDEBAR LOGIC --- */
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  flex-shrink: 0;
+  background-color: #202123;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out, padding 0.3s ease-in-out;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.sidebar:not(.open) {
+  width: 0;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* This wrapper now correctly fills the remaining space */
+.main-area-wrapper {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Prevents flexbox from overflowing its container */
+}
+
+.main-header {
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  background: linear-gradient(to top, rgba(30, 30, 30, 0.9), rgba(30, 30, 30, 0));
-  /* This allows clicks to pass through the container to the canvas */
-  pointer-events: none;
-}
-
-/* Re-enable pointer events for the buttons themselves */
-.controls-overlay > button {
-  pointer-events: auto;
-}
-
-.btn, .btn-danger {
   padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  color: white;
-  transition: background-color 0.2s, opacity 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
+  background-color: #2a2a2e;
+  border-bottom: 1px solid #3a3a3e;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
-.btn { background-color: #3b82f6; }
-.btn:hover:not(:disabled) { background-color: #2563eb; }
+.graph-title {
+  margin: 0 auto;
+  font-weight: 600;
+}
 
-.btn-danger { background-color: #dc2626; }
-.btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
+.toggle-sidebar-btn {
+  background: #3a3a3e;
+  border: 1px solid #555;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.toggle-sidebar-btn:hover {
+  background: #4a4a4e;
+}
 
-.btn:disabled, .btn-danger:disabled {
+.content-area {
+  flex-grow: 1;
+  position: relative; /* Crucial for the controls overlay */
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Sidebar Content Styles (Unchanged) --- */
+.sidebar-header, .sidebar-content { white-space: nowrap; }
+.sidebar-header {
+  padding: 0.75rem;
+  border-bottom: 1px solid #3a3a3e;
+}
+.new-graph-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: transparent;
+  border: 1px dashed #555;
+  color: #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.new-graph-btn:hover {
+  background-color: #2a2a2e;
+}
+.sidebar-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-item:hover {
+  background-color: #2a2a2e;
+}
+.sidebar-item.active {
+  background-color: #343541;
+}
+.delete-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 0.25rem;
   opacity: 0.5;
-  cursor: not-allowed;
+}
+.sidebar-item:hover .delete-btn {
+  opacity: 1;
+}
+.delete-btn:hover {
+  color: #fff;
 }
