@@ -1,0 +1,18 @@
+.chat-panel{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  background:#1b1b1e;
+  border-left:1px solid #3a3a3e;
+  overflow:hidden;
+}
+.chat-placeholder{
+  margin:auto;
+  text-align:center;
+  color:#9ca3af;
+}
+.chat-placeholder .title{
+  font-weight:600;
+  color:#e5e7eb;
+  margin-bottom:.5rem;
+}

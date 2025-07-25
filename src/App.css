@@ -51,18 +51,6 @@ body, html, #root {
 /*.sidebar.open + .main-area-wrapper{margin-left:280px;}*/
 
 /* Header Styles */
-.main-header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  background-color: #2a2a2e;
-  border-bottom: 1px solid #3a3a3e;
-  z-index: 10;
-  flex-shrink: 0;
-  height: 48px;
-  box-sizing: border-box;
-}
 
 .graph-title {
   font-weight: 600;
@@ -71,11 +59,15 @@ body, html, #root {
 }
 
 /* Content Area */
-.content-area {
-  flex-grow: 1;
-  position: relative;
-  overflow: hidden;
-  padding-bottom:0; /* Space for controls */
+.content-area{
+  flex:1 1 auto;        /* let the pane grow & shrink */
+  height:100%;          /* fill the full column height */
+  position:relative;
+  overflow:hidden;      /* keep the canvas inside */
+}
+
+.content-area > *{
+  height:100%;          /* you already have this line */
 }
 
 /* Graph Controls */
@@ -225,4 +217,16 @@ body, html, #root {
 
 .delete-btn:hover {
   color: #ef4444;
+}
+
+.resizer{
+  width:5px;
+  background:#2a2a2e;
+  cursor:col-resize;
+}
+
+.workspace-split{
+  flex:1 1 auto;   /* grow + shrink to fill column */
+  height:100%;     /* consume full vertical space */
+  min-height:0;    /* allows shrinking below intrinsic content */
 }

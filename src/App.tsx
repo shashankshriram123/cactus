@@ -3,6 +3,13 @@ import { Sidebar } from './components/Sidebar';
 import ControlTreeGraph, { type GraphApi } from './components/ControlTreeGraph';
 import { GraphControls } from './components/GraphControls';
 import type { SerializableGraphState } from './types';
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from 'react-resizable-panels';
+import ChatPanel from './components/ChatPanel';
+
 import './App.css';
 
 const createNewGraph = (): SerializableGraphState => {
@@ -78,30 +85,39 @@ function App() {
   const activeGraph = graphs.find(g => g.id === activeGraphId) || null;
 
  return (
-    <div className="app-container">
-      <Sidebar
-        graphs={graphs}
-        activeGraphId={activeGraphId}
-        onSelectGraph={handleSelectGraph}
-        onNewGraph={handleNewGraph}
-        onDeleteGraph={handleDeleteGraph}
-        isOpen={isSidebarOpen}
-        setIsOpen={setSidebarOpen}
-      />
+  <div className="app-container">
+    <Sidebar
+      graphs={graphs}
+      activeGraphId={activeGraphId}
+      onSelectGraph={handleSelectGraph}
+      onNewGraph={handleNewGraph}
+      onDeleteGraph={handleDeleteGraph}
+      isOpen={isSidebarOpen}
+      setIsOpen={setSidebarOpen}
+    />
 
-      {/* ⬇︎ was “main-content” */}
-      <div className="main-area-wrapper">
-        <div className="main-header">
-          <span className="graph-title">{activeGraph?.name ?? 'No active project'}</span>
-        </div>
+    <div className="main-area-wrapper">
+        {/* ───── Split layout ───── */}
+       <PanelGroup direction="horizontal" className="workspace-split">
+          {/* LEFT – graph */}
+          <Panel minSize={20} defaultSize={70}>
+            <div className="content-area">
+              <ControlTreeGraph
+                ref={graphApiRef}
+                graphState={activeGraph}
+                onButtonStateChange={setButtonStates}
+              />
+            </div>
+          </Panel>
 
-        <div className="content-area">
-          <ControlTreeGraph
-            ref={graphApiRef}
-            graphState={activeGraph}
-            onButtonStateChange={setButtonStates}
-          />
-        </div>
+          {/* draggable bar */}
+          <PanelResizeHandle className="resizer" />
+
+          {/* RIGHT – chat */}
+          <Panel minSize={20} defaultSize={30}>
+            <ChatPanel />
+          </Panel>
+        </PanelGroup>
 
         <GraphControls
           graphApiRef={graphApiRef}
