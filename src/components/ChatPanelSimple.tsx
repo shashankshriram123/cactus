@@ -17,6 +17,7 @@ const ChatPanel: React.FC = () => {
   const [lastSelectedModel, setLastSelectedModel] = useState<BedrockModelKey | null>(null);
   const [useMCPServer, setUseMCPServer] = useState(false);
   const [mcpServerStatus, setMCPServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   const taRef = useRef<HTMLTextAreaElement>(null);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
@@ -83,7 +84,8 @@ const ChatPanel: React.FC = () => {
           body: JSON.stringify({
             messages: newMessages,
             preferredModel: autoSelectModel ? undefined : model,
-            autoSelect: autoSelectModel
+            autoSelect: autoSelectModel,
+            sessionId: sessionId
           })
         });
         
@@ -243,7 +245,7 @@ const ChatPanel: React.FC = () => {
           color: '#065f46',
           border: '1px solid #10b981'
         }}>
-          💾 Chat auto-saving to database
+          💾 Auto-saving to database (Session: {sessionId.split('_')[1]})
         </div>
       )}
 
