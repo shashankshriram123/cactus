@@ -1,18 +1,81 @@
+/* ─── ChatPanel base ────────────────────────────── */
 .chat-panel{
-  height:100%;
   display:flex;
   flex-direction:column;
+  height:100%;
   background:#1b1b1e;
   border-left:1px solid #3a3a3e;
-  overflow:hidden;
+  padding-bottom:var(--controls-h);   /* blue bar clearance */
+  box-sizing:border-box;
 }
-.chat-placeholder{
-  margin:auto;
-  text-align:center;
-  color:#9ca3af;
+
+/* ─── Header ────────────────────────────────────── */
+.chat-header{
+  display:flex;
+  align-items:center;
+  gap:.6rem;
+  padding:.6rem .9rem;
+  border-bottom:1px solid #3a3a3e;
 }
-.chat-placeholder .title{
-  font-weight:600;
+.color-chip{
+  width:16px;height:16px;border-radius:50%;cursor:pointer;
+}
+.chat-title,.title-input{
+  flex:1 1 auto;font-weight:600;font-size:.95rem;color:#e5e7eb;
+  background:transparent;border:0;outline:none;
+}
+.title-input{padding:0 .25rem;border-radius:6px;background:#27272a;}
+.model-select{
+  background:#27272a;color:#e5e7eb;border:1px solid #3a3a3e;
+  padding:.25rem .5rem;border-radius:6px;font-size:.85rem;
+}
+
+/* ─── Messages ──────────────────────────────────── */
+.chat-history{
+  flex:1 1 auto;overflow-y:auto;padding:1rem;scroll-behavior:smooth;
+}
+
+/* ─── Composer row ──────────────────────────────── */
+.chat-composer{
+  display:flex;
+  align-items:flex-end;
+  gap:.6rem;
+  padding:.7rem 1rem;
+  border-top:1px solid #3a3a3e;
+  flex-shrink:0;
+  background:#1b1b1e;
+}
+
+.chat-input{
+  flex:1 1 auto;
+  max-height:200px;
+  background:#27272a;
   color:#e5e7eb;
-  margin-bottom:.5rem;
+  border:1px solid transparent;
+  border-radius:10px;           /* rectangular w/ soft corners */
+  padding:.6rem 1rem;
+  font-size:.9rem;
+  line-height:1.4;
+  resize:none;                  /* auto-grow via JS */
+  outline:none;
+  transition:border .15s;
 }
+.chat-input:focus{ border-color:#3b82f6; }
+
+.send-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.35rem;
+  padding:.6rem 1.1rem;
+  background:#1e40af;
+  color:#e5e7eb;
+  border:1px solid #3b82f6;
+  border-radius:10px;           /* same corner radius */
+  font-size:.9rem;
+  cursor:pointer;
+  transition:background .15s, opacity .15s;
+}
+.send-btn svg{ width:1rem;height:1rem; }
+.send-btn:hover:not(:disabled){ background:#2563eb; }
+.send-btn:disabled{ opacity:.35;cursor:not-allowed; }

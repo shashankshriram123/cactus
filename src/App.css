@@ -70,8 +70,17 @@ body, html, #root {
   height:100%;          /* you already have this line */
 }
 
+:root{
+  --controls-h:30px;             /* was 48px */
+}
 /* Graph Controls */
 .graph-controls-container {
+    /* <— single source of truth */
+  position:fixed;
+  bottom:0;
+  left:68px;
+  right:0;
+  height:var(--controls-h);
   position: fixed;
   bottom: 0;
   left: 68px; /* Start at collapsed sidebar width */
