@@ -8,28 +8,25 @@ interface GraphControlsProps {
   activeGraph: boolean;
 }
 
-export const GraphControls: React.FC<GraphControlsProps> = ({ graphApiRef, buttonStates, activeGraph }) => {
-  if (!activeGraph) {
-    return null; // Don't render controls if no graph is active
-  }
+export const GraphControls: React.FC<GraphControlsProps> = ({
+  graphApiRef, buttonStates, activeGraph,
+}) => {
+  if (!activeGraph) return null;
 
-  const callCanvasFunc = (funcName: keyof GraphApi) => {
-    if (graphApiRef.current && typeof graphApiRef.current[funcName] === 'function') {
-      // @ts-ignore
-      graphApiRef.current[funcName]();
-    }
-  };
+  const call = (fn: keyof GraphApi) =>
+    graphApiRef.current && (graphApiRef.current[fn] as () => void)();
 
   return (
-    <div className="controls-overlay">
-      <button onClick={() => callCanvasFunc('createSubBranch')} disabled={buttonStates.create} className="btn">Create Sub-Branch</button>
-      <button onClick={() => callCanvasFunc('expandBranch')} disabled={buttonStates.expand} className="btn">Expand Head</button>
-      <button onClick={() => callCanvasFunc('collapseSelected')} disabled={buttonStates.collapse} className="btn">Collapse Extension</button>
-      <button onClick={() => callCanvasFunc('foldSelected')} disabled={buttonStates.fold} className="btn">Fold Children</button>
-      <button onClick={() => callCanvasFunc('unfoldSelected')} disabled={buttonStates.unfold} className="btn">Unfold</button>
-      <button onClick={() => callCanvasFunc('deleteSelectedNode')} disabled={buttonStates.deleteNode} className="btn-danger">Delete Node</button>
-      <button onClick={() => callCanvasFunc('deleteSelectedExtension')} disabled={buttonStates.deleteExtension} className="btn-danger">Delete Extension</button>
-      <button onClick={() => callCanvasFunc('deleteSelectedChildren')} disabled={buttonStates.deleteChildren} className="btn-danger">Delete Children</button>
+    <div className="graph-controls-container">
+      <button onClick={() => call('createSubBranch')} disabled={buttonStates.create}>Create Sub-Branch</button>
+      <button onClick={() => call('expandBranch')}    disabled={buttonStates.expand}>Expand Head</button>
+      <button onClick={() => call('collapseSelected')}disabled={buttonStates.collapse}>Collapse Extension</button>
+      <button onClick={() => call('foldSelected')}    disabled={buttonStates.fold}>Fold Children</button>
+      <button onClick={() => call('unfoldSelected')}  disabled={buttonStates.unfold}>Unfold</button>
+
+      <button className="danger" onClick={() => call('deleteSelectedNode')}      disabled={buttonStates.deleteNode}>Delete Node</button>
+      <button className="danger" onClick={() => call('deleteSelectedExtension')} disabled={buttonStates.deleteExtension}>Delete Extension</button>
+      <button className="danger" onClick={() => call('deleteSelectedChildren')}  disabled={buttonStates.deleteChildren}>Delete Children</button>
     </div>
   );
 };

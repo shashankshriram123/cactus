@@ -7,6 +7,7 @@ export interface SerializableNode {
 
 export interface SerializableBranch {
   id: number;
+  label: string; // Add label property
   color: string;
   nodeIds: number[];
   parentNodeId: number | null;
@@ -36,6 +37,7 @@ export interface GraphNode {
 
 export interface GraphBranch {
   id: number;
+  label: string; // Add label property
   color: string;
   nodes: GraphNode[];
   parentNode: GraphNode | null;

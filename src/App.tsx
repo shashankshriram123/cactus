@@ -9,15 +9,15 @@ const createNewGraph = (): SerializableGraphState => {
   const id = crypto.randomUUID();
   return {
     id,
-    name: `New Tree ${new Date().toLocaleTimeString()}`,
-    camera: { x: window.innerWidth / 2, y: window.innerHeight / 2 + 80, scale: 1 },
+    name: `New Project ${new Date().toLocaleTimeString()}`,
+    camera: { x: 150, y: window.innerHeight - 250, scale: 1 },
     nodes: {
-      '1': { id: 1, x: 0, y: 60, isHead: false },
-      '2': { id: 2, x: 0, y: 0, isHead: false },
-      '3': { id: 3, x: 0, y: -60, isHead: true },
+      '1': { id: 1, x: 0, y: -40, isHead: false },
+      '2': { id: 2, x: 0, y: -100, isHead: false },
+      '3': { id: 3, x: 0, y: -160, isHead: true },
     },
     branches: {
-      '1': { id: 1, color: '#f59e0b', nodeIds: [1, 2, 3], parentNodeId: null },
+      '1': { id: 1, label: 'Main Chat', color: '#f59e0b', nodeIds: [1, 2, 3], parentNodeId: null },
     },
     branchOrder: [1],
     nextNodeId: 4,
@@ -26,7 +26,6 @@ const createNewGraph = (): SerializableGraphState => {
   };
 };
 
-// Initial state for the control buttons (all disabled)
 const initialButtonStates = {
   create: true, expand: true, fold: true, collapse: true, unfold: true, 
   deleteChildren: true, deleteExtension: true, deleteNode: true
@@ -38,10 +37,8 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [buttonStates, setButtonStates] = useState<Record<string, boolean>>(initialButtonStates);
   
-  // Ref to access the ControlTreeGraph's imperative API
   const graphApiRef = useRef<GraphApi>(null);
 
-  // Load graphs from localStorage on initial render
   useEffect(() => {
     try {
       const savedGraphs = localStorage.getItem('control-tree-graphs');
@@ -54,18 +51,8 @@ function App() {
       }
     } catch (error) {
       console.error("Failed to load graphs from localStorage:", error);
-      localStorage.removeItem('control-tree-graphs');
     }
   }, []);
-
-  // Save graphs to localStorage whenever they change
-  useEffect(() => {
-    if (graphs.length > 0) {
-      localStorage.setItem('control-tree-graphs', JSON.stringify(graphs));
-    } else {
-      localStorage.removeItem('control-tree-graphs');
-    }
-  }, [graphs]);
 
   const handleNewGraph = () => {
     const newGraph = createNewGraph();
@@ -74,21 +61,9 @@ function App() {
   };
   
   const handleSelectGraph = (id: string) => {
-    // Reset button states when switching graphs
     setButtonStates(initialButtonStates);
     setActiveGraphId(id);
   }
-
-  const handleSaveActiveGraph = () => {
-    if (!activeGraphId || !graphApiRef.current) return;
-    const updatedState = graphApiRef.current.serialize();
-    if (updatedState) {
-      setGraphs(prev =>
-        prev.map(g => (g.id === activeGraphId ? updatedState : g))
-      );
-      alert('Graph saved!');
-    }
-  };
 
   const handleDeleteGraph = (id: string) => {
     setGraphs(prev => {
@@ -102,7 +77,7 @@ function App() {
 
   const activeGraph = graphs.find(g => g.id === activeGraphId) || null;
 
-  return (
+ return (
     <div className="app-container">
       <Sidebar
         graphs={graphs}
@@ -111,32 +86,29 @@ function App() {
         onNewGraph={handleNewGraph}
         onDeleteGraph={handleDeleteGraph}
         isOpen={isSidebarOpen}
+        setIsOpen={setSidebarOpen}
       />
-      <main className={`main-content ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+
+      {/* ⬇︎ was “main-content” */}
+      <div className="main-area-wrapper">
         <div className="main-header">
-          <button className="toggle-sidebar-btn" onClick={() => setSidebarOpen(o => !o)}>
-            {isSidebarOpen ? '‹' : '›'}
-          </button>
-          <span className="graph-title">{activeGraph?.name ?? 'No graph selected'}</span>
-          {activeGraph && (
-            <button className="save-graph-btn" onClick={handleSaveActiveGraph}>
-              Save
-            </button>
-          )}
+          <span className="graph-title">{activeGraph?.name ?? 'No active project'}</span>
         </div>
+
         <div className="content-area">
-            <ControlTreeGraph 
-                ref={graphApiRef} 
-                graphState={activeGraph}
-                onButtonStateChange={setButtonStates}
-            />
-            <GraphControls 
-                graphApiRef={graphApiRef}
-                buttonStates={buttonStates}
-                activeGraph={!!activeGraph}
-            />
+          <ControlTreeGraph
+            ref={graphApiRef}
+            graphState={activeGraph}
+            onButtonStateChange={setButtonStates}
+          />
         </div>
-      </main>
+
+        <GraphControls
+          graphApiRef={graphApiRef}
+          buttonStates={buttonStates}
+          activeGraph={!!activeGraph}
+        />
+      </div>
     </div>
   );
 }
