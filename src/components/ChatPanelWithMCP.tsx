@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Zap } from 'lucide-react';      // icon library already in Vite template
+import { Send, Loader2, Zap, Database, Cloud } from 'lucide-react';
 import './ChatPanel.css';
+import './ChatPanelMCP.css';
 import { bedrockService, BEDROCK_MODELS, type ChatMessage, type BedrockModelKey } from '../services/bedrock';
+import { mcpClient, type BedrockResponse } from '../services/mcp-client';
 
 const COLORS = ['#f87171', '#facc15', '#34d399', '#60a5fa', '#c084fc'];
 
@@ -15,6 +17,9 @@ const ChatPanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [autoSelectModel, setAutoSelectModel] = useState(true);
   const [lastSelectedModel, setLastSelectedModel] = useState<BedrockModelKey | null>(null);
+  const [useMCPServer, setUseMCPServer] = useState(false);
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [mcpServerStatus, setMCPServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   const taRef = useRef<HTMLTextAreaElement>(null);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
@@ -34,6 +39,44 @@ const ChatPanel: React.FC = () => {
     }
   }, [messages]);
 
+  /* Check MCP server status */
+  useEffect(() => {
+    const checkMCPServer = async () => {
+      try {
+        await mcpClient.healthCheck();
+        setMCPServerStatus('online');
+      } catch (error) {
+        setMCPServerStatus('offline');
+        console.log('MCP Server not available, using direct Bedrock calls');
+      }
+    };
+
+    checkMCPServer();
+  }, []);
+
+  /* Auto-save chat session when using MCP server */
+  useEffect(() => {
+    if (useMCPServer && mcpServerStatus === 'online' && messages.length > 0) {
+      const saveSession = async () => {
+        try {
+          await mcpClient.saveChatSession({
+            sessionId,
+            title,
+            color,
+            messages,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        } catch (error) {
+          console.error('Failed to save chat session:', error);
+        }
+      };
+
+      const debounceTimer = setTimeout(saveSession, 1000);
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [messages, title, color, useMCPServer, mcpServerStatus, sessionId]);
+
   const cycleColor = () => setColor(i => (i + 1) % COLORS.length);
   
   const send = async () => {
@@ -51,11 +94,28 @@ const ChatPanel: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { response, selectedModel } = await bedrockService.sendMessage(
-        newMessages,
-        autoSelectModel ? undefined : model,
-        autoSelectModel
-      );
+      let response: string;
+      let selectedModel: BedrockModelKey;
+
+      if (useMCPServer && mcpServerStatus === 'online') {
+        // Use MCP Server
+        const mcpResponse = await mcpClient.sendMessage(
+          newMessages,
+          autoSelectModel ? undefined : model,
+          autoSelectModel
+        );
+        response = mcpResponse.response;
+        selectedModel = mcpResponse.selectedModel;
+      } else {
+        // Use direct Bedrock calls
+        const bedrockResponse = await bedrockService.sendMessage(
+          newMessages,
+          autoSelectModel ? undefined : model,
+          autoSelectModel
+        );
+        response = bedrockResponse.response;
+        selectedModel = bedrockResponse.selectedModel;
+      }
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',
@@ -81,6 +141,12 @@ const ChatPanel: React.FC = () => {
     }
   };
 
+  const toggleMCPServer = () => {
+    if (mcpServerStatus === 'online') {
+      setUseMCPServer(!useMCPServer);
+    }
+  };
+
   return (
     <div className="chat-panel">
       {/* header */}
@@ -103,6 +169,33 @@ const ChatPanel: React.FC = () => {
             {title}
           </h2>
         )}
+        
+        {/* Backend Toggle */}
+        <div className="backend-controls">
+          <button
+            className={`backend-toggle ${useMCPServer ? 'mcp' : 'direct'}`}
+            onClick={toggleMCPServer}
+            disabled={mcpServerStatus !== 'online'}
+            title={
+              mcpServerStatus === 'online' 
+                ? (useMCPServer ? 'Using MCP Server (with database)' : 'Using Direct Bedrock')
+                : 'MCP Server offline'
+            }
+          >
+            {mcpServerStatus === 'checking' ? (
+              <Loader2 size={16} className="spinner" />
+            ) : useMCPServer ? (
+              <Database size={16} />
+            ) : (
+              <Cloud size={16} />
+            )}
+            <span className="backend-label">
+              {mcpServerStatus === 'checking' ? 'Checking...' : 
+               useMCPServer ? 'MCP' : 'Direct'}
+            </span>
+          </button>
+        </div>
+
         <select
           className="model-select"
           value={model}
@@ -124,6 +217,18 @@ const ChatPanel: React.FC = () => {
         </button>
       </header>
 
+      {/* MCP Server Status Banner */}
+      {mcpServerStatus === 'offline' && (
+        <div className="mcp-status-banner offline">
+          💾 MCP Server offline - chats won't be saved to database
+        </div>
+      )}
+      {useMCPServer && mcpServerStatus === 'online' && (
+        <div className="mcp-status-banner online">
+          💾 Chat auto-saving to database (Session: {sessionId.split('_')[1]})
+        </div>
+      )}
+
       {/* messages list */}
       <main className="chat-history" ref={chatHistoryRef}>
         {messages.map((message, index) => (
@@ -139,6 +244,9 @@ const ChatPanel: React.FC = () => {
                 <span className="timestamp">
                   {message.timestamp.toLocaleTimeString()}
                 </span>
+                {useMCPServer && (
+                  <span className="backend-indicator">📊</span>
+                )}
               </div>
             )}
           </div>
@@ -150,6 +258,7 @@ const ChatPanel: React.FC = () => {
               {lastSelectedModel && (
                 <span className="loading-text">
                   {BEDROCK_MODELS[lastSelectedModel]?.name} is thinking...
+                  {useMCPServer && ' (via MCP)'}
                 </span>
               )}
             </div>
@@ -163,7 +272,7 @@ const ChatPanel: React.FC = () => {
           ref={taRef}
           rows={1}
           className="chat-input"
-          placeholder="Type a message… (responses limited to 200 chars)"
+          placeholder={`Type a message… (responses limited to 200 chars)${useMCPServer ? ' • Auto-saving' : ''}`}
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e =>

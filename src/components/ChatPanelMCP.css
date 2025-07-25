@@ -1,0 +1,108 @@
+/* Additional styles for MCP features */
+
+.backend-controls {
+  display: flex;
+  align-items: center;
+  margin: 0 8px;
+}
+
+.backend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backend-toggle:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.backend-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.backend-toggle.mcp {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.backend-toggle.direct {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.backend-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mcp-status-banner {
+  padding: 6px 12px;
+  margin: 0 12px 8px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.mcp-status-banner.offline {
+  background: #fef3cd;
+  color: #92400e;
+  border: 1px solid #fde047;
+}
+
+.mcp-status-banner.online {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.backend-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Update existing chat-header to accommodate new controls */
+.chat-header {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 60px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .chat-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .backend-controls {
+    justify-content: center;
+    margin: 0;
+  }
+  
+  .mcp-status-banner {
+    margin: 8px 0;
+    text-align: center;
+  }
+}

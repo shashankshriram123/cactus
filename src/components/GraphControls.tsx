@@ -3,7 +3,7 @@ import type { GraphApi } from './ControlTreeGraph';
 import './GraphControls.css';
 
 interface GraphControlsProps {
-  graphApiRef: React.RefObject<GraphApi>;
+  graphApiRef: React.RefObject<GraphApi | null>;
   buttonStates: Record<string, boolean>;
   activeGraph: boolean;
 }

@@ -8,7 +8,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from 'react-resizable-panels';
-import ChatPanel from './components/ChatPanel';
+import ChatPanel from './components/ChatPanelSimple';
 
 import './App.css';
 
@@ -19,15 +19,13 @@ const createNewGraph = (): SerializableGraphState => {
     name: `New Project ${new Date().toLocaleTimeString()}`,
     camera: { x: 150, y: window.innerHeight - 250, scale: 1 },
     nodes: {
-      '1': { id: 1, x: 0, y: -40, isHead: false },
-      '2': { id: 2, x: 0, y: -100, isHead: false },
-      '3': { id: 3, x: 0, y: -160, isHead: true },
+      '1': { id: 1, x: 0, y: -40, isHead: true },
     },
     branches: {
-      '1': { id: 1, label: 'Main Chat', color: '#f59e0b', nodeIds: [1, 2, 3], parentNodeId: null },
+      '1': { id: 1, label: 'Main Chat', color: '#f59e0b', nodeIds: [1], parentNodeId: null },
     },
     branchOrder: [1],
-    nextNodeId: 4,
+    nextNodeId: 2,
     nextBranchId: 2,
     nextColorIndex: 1,
   };
@@ -52,14 +50,35 @@ function App() {
       if (savedGraphs) {
         const parsedGraphs = JSON.parse(savedGraphs);
         if (Array.isArray(parsedGraphs) && parsedGraphs.length > 0) {
-          setGraphs(parsedGraphs);
-          setActiveGraphId(parsedGraphs[0].id);
+          // Check if saved graphs are using old format (3 nodes), if so, clear them
+          const firstGraph = parsedGraphs[0];
+          const nodeCount = Object.keys(firstGraph.nodes || {}).length;
+          if (nodeCount === 3) {
+            console.log('Clearing old 3-node graphs, creating new single-node graph');
+            localStorage.removeItem('control-tree-graphs');
+          } else {
+            setGraphs(parsedGraphs);
+            setActiveGraphId(parsedGraphs[0].id);
+            return; // Exit early if we loaded valid saved graphs
+          }
         }
       }
     } catch (error) {
       console.error("Failed to load graphs from localStorage:", error);
     }
+    
+    // If no saved graphs or error loading, create a default graph
+    const defaultGraph = createNewGraph();
+    setGraphs([defaultGraph]);
+    setActiveGraphId(defaultGraph.id);
   }, []);
+
+  // Save graphs to localStorage whenever they change
+  useEffect(() => {
+    if (graphs.length > 0) {
+      localStorage.setItem('control-tree-graphs', JSON.stringify(graphs));
+    }
+  }, [graphs]);
 
   const handleNewGraph = () => {
     const newGraph = createNewGraph();
