@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import ControlTreeGraph, { type GraphApi } from './components/ControlTreeGraph';
-import { GraphControls } from './components/GraphControls';
+
 import type { SerializableGraphState } from './types';
 import {
   Panel,
@@ -119,11 +119,6 @@ function App() {
           </Panel>
         </PanelGroup>
 
-        <GraphControls
-          graphApiRef={graphApiRef}
-          buttonStates={buttonStates}
-          activeGraph={!!activeGraph}
-        />
       </div>
     </div>
   );
