@@ -1,10 +1,14 @@
 from typing import List, Optional
 from sqlmodel import Field, SQLModel, Relationship
+from datetime import datetime
+
 
 class Graph(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
+
     branches: List["Branch"] = Relationship(back_populates="graph")
+
 
 class Branch(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -13,62 +17,48 @@ class Branch(SQLModel, table=True):
     graph_id: str = Field(foreign_key="graph.id", index=True)
     graph: "Graph" = Relationship(back_populates="branches")
 
+    # The node this branch forked from (nullable for root branch)
     parent_node_id: Optional[int] = Field(default=None, foreign_key="node.id")
-    head_node_id: Optional[int] = Field(default=None, foreign_key="node.id")
 
+    # Relationship to parent node
     parent_node: Optional["Node"] = Relationship(
-        sa_relationship_kwargs=dict(
-            foreign_keys="[Branch.parent_node_id]",
-            primaryjoin="Branch.parent_node_id==Node.id",
-            overlaps="nodes,branch,head_node,sub_branches",
-        ),
         back_populates="sub_branches",
+        sa_relationship_kwargs={"foreign_keys": "[Branch.parent_node_id]"},
     )
 
-    head_node: Optional["Node"] = Relationship(
-        sa_relationship_kwargs=dict(
-            foreign_keys="[Branch.head_node_id]",
-            primaryjoin="Branch.head_node_id==Node.id",
-            overlaps="nodes,branch,parent_node,sub_branches",
-        )
-    )
-
+    # One-to-many Branch -> Nodes (use Node.branch_id explicitly)
     nodes: List["Node"] = Relationship(
         back_populates="branch",
-        sa_relationship_kwargs=dict(
-            foreign_keys="[Node.branch_id]",
-            primaryjoin="Node.branch_id==Branch.id",
-            overlaps="parent_node,head_node,sub_branches,branch",
-        ),
+        sa_relationship_kwargs={"foreign_keys": "[Node.branch_id]"},
     )
+
 
 class Node(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     sequence: int
-    prompt: Optional[str] = None
+
     content: str
+    prompt: Optional[str] = None
     model_name: Optional[str] = None
+    author: Optional[str] = Field(default="user")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     branch_id: int = Field(foreign_key="branch.id", index=True)
+
+    # Node belongs to exactly one Branch
     branch: "Branch" = Relationship(
         back_populates="nodes",
-        sa_relationship_kwargs=dict(
-            foreign_keys="[Node.branch_id]",
-            primaryjoin="Node.branch_id==Branch.id",
-            overlaps="parent_node,head_node,sub_branches,nodes",
-        ),
+        sa_relationship_kwargs={"foreign_keys": "[Node.branch_id]"},
     )
 
-    sub_branches: List[Branch] = Relationship(
+    # Node can have sub-branches forked from it
+    sub_branches: List["Branch"] = Relationship(
         back_populates="parent_node",
-        sa_relationship_kwargs=dict(
-            foreign_keys="[Branch.parent_node_id]",
-            primaryjoin="Branch.parent_node_id==Node.id",
-            overlaps="nodes,branch,head_node",
-        ),
+        sa_relationship_kwargs={"foreign_keys": "[Branch.parent_node_id]"},
     )
 
-# Resolve forward refs
+
+# Resolve forward references
 Graph.model_rebuild()
 Branch.model_rebuild()
 Node.model_rebuild()

@@ -1,4 +1,13 @@
 from pydantic import BaseModel
+from typing import Optional
+
+class NodeCreate(BaseModel):
+    content: str
+    author: Optional[str] = "user"
+
+class RootNodeCreate(BaseModel):
+    content: str
+    author: Optional[str] = "user"
 
 class SubBranchRequest(BaseModel):
     label: str
