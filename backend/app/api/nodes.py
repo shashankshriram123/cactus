@@ -11,13 +11,30 @@ from app.db.models import Node
 
 router = APIRouter()
 
+from fastapi import HTTPException
+from sqlmodel import Session
+from app.db.session import get_session, engine
+from app.models import Graph
+from app.agent_service import agent_service
+from app.api.graphs import convert_graph_to_response
+from app.api.node_schemas import GraphStateResponse
+
 @router.post("/nodes/{node_id}/extend", response_model=GraphStateResponse)
-async def extend_branch_from_node(node_id: int):
+async def extend_node(node_id: int):
     """
-    Agentic action to extend a branch from a specific node.
+    Extend the conversation starting from the given node.
     """
-    graph_id = agent_service.extend_branch(node_id=node_id)
-    return await get_graph_state(graph_id=graph_id)
+    try:
+        graph_id = agent_service.extend_branch(node_id)
+        with Session(engine) as session:
+            graph = session.get(Graph, graph_id)
+            if not graph:
+                raise HTTPException(status_code=404, detail="Graph not found")
+            return convert_graph_to_response(graph)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extend node {node_id}: {str(e)}")
+
+
 
 
 # Update this endpoint

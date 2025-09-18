@@ -8,6 +8,7 @@ import type {
   SerializableBranch,
 } from './types';
 import { FiPlusCircle, FiEyeOff, FiEye, FiTrash2 } from 'react-icons/fi';
+import { cactusApi } from '../api/cactusApi';
 
 // --- API exposed by the component ---
 export interface GraphApi {
@@ -29,8 +30,11 @@ export interface GraphApi {
 // --- Component Props ---
 interface ControlTreeGraphProps {
   graphState: SerializableGraphState | null;
-  onButtonStateChange: (states: any) => void; // Adjust type as needed
+  onButtonStateChange: (states: any) => void;
+  onGraphUpdate?: (state: SerializableGraphState) => void; // NEW
 }
+
+
 
 // --- Helper Functions ---
 const getDescendantBranches = (startNode: GraphNode, allBranches: GraphBranch[]): GraphBranch[] => {
@@ -89,6 +93,17 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
     // track current selection so our overlay can enable/disable button
   const [selectedNode, setSelectedNode] = useState<GraphNode|null>(null);
 
+  const syncWithServer = async (
+    action: () => Promise<SerializableGraphState>
+  ) => {
+    try {
+      const updated = await action();
+      onGraphUpdate?.(updated);
+    } catch (err) {
+      console.error('Server sync failed', err);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     serialize: () => {
       const { branches, nodes, camera, state } = liveGraph.current;
@@ -121,14 +136,42 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
 
       return { ...updatedState, camera, nodes: serializableNodes, branches: serializableBranches, branchOrder };
     },
-    createSubBranch: () => (canvasRef.current as any)?.createSubBranch(),
-    expandBranch: () => (canvasRef.current as any)?.expandBranch(),
+    createSubBranch: () => {
+        if (!selectedNode) return;
+        syncWithServer(() =>
+          cactusApi.createSubBranch(
+            selectedNode.id,
+            'New Branch',
+            'Forked here'
+          )
+        );
+      },
+
+    expandBranch: () => {
+        if (!selectedNode) return;
+        syncWithServer(() =>
+          cactusApi.extendNode(selectedNode.id, 'Extended', 'user')
+        );
+      },
+
     collapseSelected: () => (canvasRef.current as any)?.collapseSelected(),
     foldSelected: () => (canvasRef.current as any)?.foldSelected(),
     unfoldSelected: () => (canvasRef.current as any)?.unfoldSelected(),
-    deleteSelectedNode: () => (canvasRef.current as any)?.deleteSelectedNode(),
-    deleteSelectedExtension: () => (canvasRef.current as any)?.deleteSelectedExtension(),
-    deleteSelectedChildren: () => (canvasRef.current as any)?.deleteSelectedChildren(),
+    deleteSelectedNode: () => {
+      if (!selectedNode) return;
+      syncWithServer(() => cactusApi.deleteNode(selectedNode.id));
+    },
+
+    deleteSelectedExtension: () => {
+      if (!selectedNode) return;
+      syncWithServer(() => cactusApi.deleteExtension(selectedNode.id));
+    },
+
+    deleteSelectedChildren: () => {
+      if (!selectedNode) return;
+      syncWithServer(() => cactusApi.deleteChildren(selectedNode.id));
+    },
+
     // new mappings
     hideChildren: () => (canvasRef.current as any)?.foldSelected(),
     hideExtension: () => (canvasRef.current as any)?.collapseSelected(),
@@ -696,3 +739,7 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
 });
 
 export default ControlTreeGraph;
+
+function onGraphUpdate(updated: SerializableGraphState) {
+  throw new Error('Function not implemented.');
+}

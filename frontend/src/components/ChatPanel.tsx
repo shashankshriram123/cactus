@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';      // icon library already in Vite template
+import { Send } from 'lucide-react';    
 import './ChatPanel.css';
+
+type ChatPanelProps = {
+  onSend?: (text: string, model: string) => void;
+};
 
 const COLORS = ['#f87171', '#facc15', '#34d399', '#60a5fa', '#c084fc'];
 
-const ChatPanel: React.FC = () => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ onSend }) => {
   const [title, setTitle] = useState('New Chat');
   const [editing, setEdit] = useState(false);
   const [color, setColor] = useState(3);
@@ -22,9 +26,10 @@ const ChatPanel: React.FC = () => {
   }, [draft]);
 
   const cycleColor = () => setColor(i => (i + 1) % COLORS.length);
+
   const send = () => {
     if (!draft.trim()) return;
-    console.log(`[${model}] ${draft}`);
+    onSend?.(draft, model);   // notify parent (App.tsx)
     setDraft('');
   };
 
