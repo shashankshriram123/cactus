@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/transparent_logo_light.png" alt="Cactus Logo" style="max-width:600px;"/>
+  <img src="assets/transparent_logo_light.png" alt="Cactus Logo" width="400"/>
 </p>
+
+
 
 An interactive whiteboard for mapping ideas, timelines, and projects.  
 Built with **React + Vite + React Flow** on the frontend and **FastAPI** on the backend.  
