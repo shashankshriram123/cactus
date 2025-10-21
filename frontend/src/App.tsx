@@ -15,24 +15,12 @@ const createNewGraph = (): SerializableGraphState => {
     id,
     name: `New Project ${new Date().toLocaleTimeString()}`,
     camera: { x: 150, y: window.innerHeight - 250, scale: 1 },
-    nodes: {
-      '1': { id: 1, x: 0, y: -40, isHead: false },
-      '2': { id: 2, x: 0, y: -100, isHead: false },
-      '3': { id: 3, x: 0, y: -160, isHead: true },
-    },
-    branches: {
-      '1': {
-        id: 1,
-        label: 'Main Chat',
-        color: '#f59e0b',
-        nodeIds: [1, 2, 3],
-        parentNodeId: null,
-      },
-    },
-    branchOrder: [1],
-    nextNodeId: 4,
-    nextBranchId: 2,
-    nextColorIndex: 1,
+    nodes: {},
+    branches: {},
+    branchOrder: [],
+    nextNodeId: 1,
+    nextBranchId: 1,
+    nextColorIndex: 0,
   };
 };
 
@@ -56,11 +44,12 @@ function App() {
   );
 
   const graphApiRef = useRef<GraphApi>(null);
+  const [egoNodeId, setEgoNodeId] = useState<number | null>(null);
 
   // load from localStorage on boot
   useEffect(() => {
     try {
-      const savedGraphs = localStorage.getItem('control-tree-graphs');
+      const savedGraphs = localStorage.getItem('control-tree-graphs-v2');
       if (savedGraphs) {
         const parsedGraphs = JSON.parse(savedGraphs);
         if (Array.isArray(parsedGraphs) && parsedGraphs.length > 0) {
@@ -76,7 +65,7 @@ function App() {
   // persist to localStorage whenever graphs change
   useEffect(() => {
     try {
-      localStorage.setItem('control-tree-graphs', JSON.stringify(graphs));
+      localStorage.setItem('control-tree-graphs-v2', JSON.stringify(graphs));
     } catch (e) {
       console.error('Failed to save graphs to localStorage:', e);
     }
@@ -153,10 +142,15 @@ function App() {
       let serverState: SerializableGraphState;
       if (!hasRoot) {
         serverState = await cactusApi.createRoot(activeGraphId, text, 'user');
+        // ego becomes the newly created root node (last nextNodeId - 1)
+        setEgoNodeId(serverState.nextNodeId - 1);
       } else {
-        const headId = getRootHeadNodeId(g);
-        if (!headId) return;
-        serverState = await cactusApi.extendNode(headId, text, 'user');
+        const anchorId = egoNodeId ?? getRootHeadNodeId(g);
+        if (!anchorId) return;
+        serverState = await cactusApi.extendNode(anchorId, text, 'user');
+        // ego becomes the head of the same branch as anchorId
+        const branch = Object.values(serverState.branches || {}).find(b => b.nodeIds.includes(anchorId));
+        if (branch) setEgoNodeId(branch.nodeIds[branch.nodeIds.length - 1]);
       }
       setGraphs(prev =>
         prev.map(x => (x.id === activeGraphId ? serverState : x))
@@ -193,6 +187,7 @@ function App() {
                     prev.map(g => g.id === updated.id ? updated : g)
                   );
                 }}
+                onEgoChange={(nodeId) => setEgoNodeId(nodeId)}
               />
             </div>
           </Panel>

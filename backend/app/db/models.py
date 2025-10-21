@@ -7,7 +7,13 @@ class Graph(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
 
-    branches: List["Branch"] = Relationship(back_populates="graph")
+    branches: List["Branch"] = Relationship(
+        back_populates="graph",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": False,
+        },
+    )
 
 
 class Branch(SQLModel, table=True):
@@ -29,7 +35,10 @@ class Branch(SQLModel, table=True):
     # One-to-many Branch -> Nodes (use Node.branch_id explicitly)
     nodes: List["Node"] = Relationship(
         back_populates="branch",
-        sa_relationship_kwargs={"foreign_keys": "[Node.branch_id]"},
+        sa_relationship_kwargs={
+            "foreign_keys": "[Node.branch_id]",
+            "cascade": "all, delete-orphan",
+        },
     )
 
 
@@ -54,7 +63,10 @@ class Node(SQLModel, table=True):
     # Node can have sub-branches forked from it
     sub_branches: List["Branch"] = Relationship(
         back_populates="parent_node",
-        sa_relationship_kwargs={"foreign_keys": "[Branch.parent_node_id]"},
+        sa_relationship_kwargs={
+            "foreign_keys": "[Branch.parent_node_id]",
+            "cascade": "all, delete-orphan",
+        },
     )
 
 

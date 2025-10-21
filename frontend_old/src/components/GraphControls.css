@@ -1,0 +1,33 @@
+/* bottom-fixed button bar */
+.graph-controls-container{
+  position:fixed;
+  bottom:0;
+  left:68px;               /* collapsed sidebar */
+  right:0;
+  background:#2a2a2e;
+  padding:.5rem;
+  border-top:1px solid #3a3a3e;
+  display:flex;
+  gap:.5rem;
+  justify-content:center;
+  z-index:50;
+  transition:left .2s ease-in-out;
+}
+.sidebar.open + .main-area-wrapper .graph-controls-container{left:280px;}
+
+.graph-controls-container button{
+  padding:.4rem .9rem;
+  border:1px solid #3b82f6;
+  background:#1e40af;
+  color:#e5e7eb;
+  border-radius:6px;
+  cursor:pointer;
+}
+.graph-controls-container button.danger{
+  border-color:#dc2626;
+  background:#7f1d1d;
+}
+.graph-controls-container button:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+}

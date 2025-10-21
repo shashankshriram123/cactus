@@ -1,0 +1,241 @@
+/* Reset and Fullscreen */
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #1e1e1e;
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* --- App Layout using CSS Grid --- */
+.app-container {
+  display: grid;
+  grid-template-columns: auto 1fr; /* Sidebar takes its own width, main content takes the rest */
+  height: 100vh;
+}
+
+/* --- SIDEBAR STYLES --- */
+.sidebar {
+  background-color: #202123;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease-in-out;
+  overflow: hidden;
+  z-index: 100;
+  border-right: 1px solid #3a3a3e;
+}
+
+.sidebar.open {
+  width: 280px;
+}
+
+.sidebar.closed {
+  width: 68px;
+  padding: 0.5rem 0;
+  align-items: center;
+}
+
+/* Main Content Area */
+.main-area-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+               /* collapsed sidebar */
+   transition:margin-left .2s ease-in-out;
+}
+
+/*.sidebar.open + .main-area-wrapper{margin-left:280px;}*/
+
+/* Header Styles */
+
+.graph-title {
+  font-weight: 600;
+  color: #e5e7eb;
+  font-size: 1rem;
+}
+
+/* Content Area */
+.content-area{
+  flex:1 1 auto;        /* let the pane grow & shrink */
+  height:100%;          /* fill the full column height */
+  position:relative;
+  overflow:hidden;      /* keep the canvas inside */
+}
+
+.content-area > *{
+  height:100%;          /* you already have this line */
+}
+
+:root{
+  --controls-h:30px;             /* was 48px */
+}
+/* Graph Controls */
+.graph-controls-container {
+    /* <— single source of truth */
+  position:fixed;
+  bottom:0;
+  left:68px;
+  right:0;
+  height:var(--controls-h);
+  position: fixed;
+  bottom: 0;
+  left: 68px; /* Start at collapsed sidebar width */
+  right: 0;
+  background-color: #2a2a2e;
+  padding: 0.5rem;
+  border-top: 1px solid #3a3a3e;
+  z-index: 50;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  transition: left 0.2s ease-in-out;
+}
+
+.sidebar.open + .main-area-wrapper .graph-controls-container {
+  left: 280px;
+}
+
+/* Sidebar Content Styles */
+.sidebar-collapsed-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.sidebar-icon-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-icon-btn:hover {
+  background-color: #2a2a2e;
+  color: white;
+}
+
+.sidebar-icon-btn.collapse-btn {
+  border: 1px solid #555;
+}
+
+/* Expanded Sidebar Styles */
+.sidebar-header, .sidebar-actions, .sidebar-content {
+  white-space: nowrap;
+  padding: 0.75rem 1rem;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+}
+
+.sidebar-branding {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+}
+
+.action-btn {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid #555;
+  color: #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 500;
+  background-color: #343541;
+}
+
+.action-btn:hover {
+  background-color: #4a4a4e;
+}
+
+.sidebar-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  border-top: 1px solid #3a3a3e;
+  padding-top: 1rem;
+}
+
+.projects-label {
+  font-size: 1rem;
+  color: #e5e7eb;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  display: block;
+  padding-left: 0.5rem;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-item:hover {
+  background-color: #2a2a2e;
+}
+
+.sidebar-item.active {
+  background-color: #343541;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.2s;
+}
+
+.sidebar-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+}
+
+.resizer{
+  width:5px;
+  background:#2a2a2e;
+  cursor:col-resize;
+}
+
+.workspace-split{
+  flex:1 1 auto;   /* grow + shrink to fill column */
+  height:100%;     /* consume full vertical space */
+  min-height:0;    /* allows shrinking below intrinsic content */
+}

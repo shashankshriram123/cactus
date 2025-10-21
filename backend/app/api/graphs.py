@@ -18,25 +18,30 @@ def convert_graph_to_response(graph: Graph) -> GraphStateResponse:
     nodes_response = {}
     y_pos = -40
     for branch in graph.branches:
-        for node in branch.nodes:
+        # Ensure consistent ordering by sequence
+        ordered_nodes = sorted(branch.nodes, key=lambda n: n.sequence)
+        max_seq = max((n.sequence for n in ordered_nodes), default=0)
+        for node in ordered_nodes:
             nodes_response[str(node.id)] = SerializableNodeResponse(
                 id=node.id,
                 x=0,
                 y=y_pos,
-                isHead=(node.sequence == len(branch.nodes) - 1),
+                isHead=(node.sequence == max_seq),
             )
             y_pos -= 60
 
-    branches_response = {
-        str(b.id): SerializableBranchResponse(
+    branches_response = {}
+    branch_order = []
+    for b in graph.branches:
+        ordered_nodes = sorted(b.nodes, key=lambda n: n.sequence)
+        branches_response[str(b.id)] = SerializableBranchResponse(
             id=b.id,
             label=b.label,
-            color="#f59e0b",  # Hardcoded color
-            nodeIds=[n.id for n in b.nodes],
+            color="#f59e0b",
+            nodeIds=[n.id for n in ordered_nodes],
             parentNodeId=b.parent_node_id,
         )
-        for b in graph.branches
-    }
+        branch_order.append(b.id)
 
     return GraphStateResponse(
         id=graph.id,
@@ -44,7 +49,7 @@ def convert_graph_to_response(graph: Graph) -> GraphStateResponse:
         camera={"x": 150, "y": 500, "scale": 1},
         nodes=nodes_response,
         branches=branches_response,
-        branchOrder=[b.id for b in graph.branches],
+        branchOrder=branch_order,
         nextNodeId=max([n.id for n in nodes_response.values()]) + 1
         if nodes_response
         else 1,

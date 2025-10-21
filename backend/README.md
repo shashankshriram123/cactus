@@ -156,9 +156,10 @@ The core logic of the application is encapsulated in the `AgentService` class.
 
 1.  **Clone the repository.**
 2.  **Create a PostgreSQL database.**
-3.  **Create a `.env` file** in the `backend` directory and add your `DATABASE_URL`:
+3.  Optional: create a `.env` file in the `backend` directory to set `DATABASE_URL` (PostgreSQL). If not set, the app falls back to a local SQLite DB at `backend/cactus.db` for easy testing.
     ```
-    DATABASE_URL="postgresql://user:password@localhost/dbname"
+    # Example Postgres URL
+    DATABASE_URL="postgresql+psycopg2://user:password@localhost:5432/dbname"
     ```
 4.  **Install the dependencies:**
     ```bash
@@ -186,3 +187,112 @@ Once the server is running, you can use the interactive API documentation to tes
   * **Implement a layout algorithm:** Automatically arrange the nodes in the graph for better visualization on the frontend.
   * **Add user authentication:** Secure the API and allow users to have their own private conversation graphs.
   * **Add WebSocket support:** Enable real-time updates between the frontend and backend.
+
+-----
+
+## Start Developing
+
+The backend runs out of the box with SQLite (no configuration required). If you prefer PostgreSQL for development, follow the steps below.
+
+### 1) Fork and clone
+
+```bash
+# On GitHub: click "Fork" on the repository
+
+# Locally: clone your fork
+git clone https://github.com/<your-username>/<your-fork>.git
+cd <your-fork>/backend
+
+# (Optional) Add upstream to keep your fork updated
+git remote add upstream https://github.com/<original-owner>/<original-repo>.git
+```
+
+### 2) Create a Python environment and install deps
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+pip install -r requirements.txt
+```
+
+### 3) Quick start (SQLite — zero config)
+
+You can start developing immediately using the built-in SQLite database. The app will create `backend/cactus.db` and all tables on startup.
+
+```bash
+uvicorn app.main:app --reload
+# API at: http://127.0.0.1:8000
+```
+
+### 4) PostgreSQL setup (optional)
+
+If you want to use PostgreSQL locally:
+
+```bash
+# Create a database and a user (examples shown for macOS/Linux)
+createdb cactus
+createuser -P cactus_user   # you will be prompted to set a password
+
+# (Optional) grant privileges if needed
+# psql -d cactus -c "GRANT ALL PRIVILEGES ON DATABASE cactus TO cactus_user;"
+```
+
+Connection string format (SQLAlchemy/psycopg2):
+
+```
+postgresql+psycopg2://<USER>:<PASSWORD>@<HOST>:<PORT>/<DBNAME>
+```
+
+Example:
+
+```
+postgresql+psycopg2://cactus_user:yourpassword@localhost:5432/cactus
+```
+
+### 5) Configure the backend to use Postgres
+
+The app reads `DATABASE_URL` from the environment (see `app/db/session.py`). You can provide it in either of these ways:
+
+- Export in your shell:
+
+  ```bash
+  export DATABASE_URL="postgresql+psycopg2://cactus_user:yourpassword@localhost:5432/cactus"
+  uvicorn app.main:app --reload
+  ```
+
+- Or create a `.env` file and let uvicorn load it:
+
+  ```bash
+  # backend/.env
+  DATABASE_URL=postgresql+psycopg2://cactus_user:yourpassword@localhost:5432/cactus
+
+  # start server with env file
+  uvicorn --env-file .env app.main:app --reload
+  ```
+
+Notes:
+- You do not need to edit application code to switch databases.
+- Table creation is automatic on startup (SQLModel `create_all` is called in app lifespan).
+
+### 6) Verify the API locally
+
+With the server running at `http://127.0.0.1:8000`:
+
+- Open interactive docs: `http://127.0.0.1:8000/docs`
+- Quick smoke test (requires Python deps installed):
+
+  ```bash
+  python scripts/check_backend.py
+  ```
+
+- Or use the curl script (jq optional):
+
+  ```bash
+  bash ../scripts/test_graph.sh
+  ```
+
+### 7) Troubleshooting
+
+- "connection refused" to Postgres: ensure the service is running and the `DATABASE_URL` is correct.
+- Permission errors on SQLite: make sure the `backend/` directory is writable.
+- If you change DB credentials, restart uvicorn so the new env vars take effect.

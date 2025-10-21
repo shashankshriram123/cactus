@@ -1,36 +1,31 @@
-from fastapi import APIRouter, HTTPException
-from app.db.node_schemas import SubBranchRequest
-from app.db.graph_schemas import GraphStateResponse
-from app.core.agent_service import agent_service
-from app.api.graphs import get_graph_state
-
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
-from app.db.session import get_session
-from app.db.models import Node
+
+from app.db.session import get_session, engine
+from app.db.models import Node, Graph
+from app.core.agent_service import agent_service
+from app.api.graphs import convert_graph_to_response, get_graph_state
+from app.db.graph_schemas import GraphStateResponse
+from app.db.node_schemas import SubBranchRequest, NodeCreate
 
 router = APIRouter()
 
-from fastapi import HTTPException
-from sqlmodel import Session
-from app.db.session import get_session, engine
-from app.models import Graph
-from app.agent_service import agent_service
-from app.api.graphs import convert_graph_to_response
-from app.api.node_schemas import GraphStateResponse
-
 @router.post("/nodes/{node_id}/extend", response_model=GraphStateResponse)
-async def extend_node(node_id: int):
-    """
-    Extend the conversation starting from the given node.
-    """
+async def extend_node(node_id: int, payload: NodeCreate):
+    """Extend the conversation from the given node by appending a new node to its branch."""
     try:
-        graph_id = agent_service.extend_branch(node_id)
+        graph_id = agent_service.extend_branch(
+            node_id,
+            content=payload.content,
+            author=payload.author or "user",
+        )
         with Session(engine) as session:
             graph = session.get(Graph, graph_id)
             if not graph:
                 raise HTTPException(status_code=404, detail="Graph not found")
             return convert_graph_to_response(graph)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extend node {node_id}: {str(e)}")
 
@@ -53,55 +48,62 @@ async def create_sub_branch_from_node(node_id: int, request: SubBranchRequest):
     # Return the full, updated graph state
     return await get_graph_state(graph_id=graph_id)
 
-@router.delete("/nodes/{node_id}/delete-node")
+@router.post("/nodes/{node_id}/delete", response_model=GraphStateResponse)
 async def delete_node(node_id: int, session: Session = Depends(get_session)):
-    """
-    Delete this node and everything that descends from it.
-    """
-    # 1. Find the node
+    """Delete this node and everything that descends from it, then return updated graph state."""
     node = session.get(Node, node_id)
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
 
-    # 2. Recursively delete sub-branches + children
+    graph_id = node.branch.graph_id
     _delete_node_recursive(node, session)
     session.commit()
-    return {"detail": f"Node {node_id} and its descendants deleted."}
+
+    graph = session.get(Graph, graph_id)
+    if not graph:
+        raise HTTPException(status_code=404, detail="Graph not found after deletion")
+    return convert_graph_to_response(graph)
 
 
-@router.delete("/nodes/{node_id}/delete-extension")
+@router.post("/nodes/{node_id}/delete-extension", response_model=GraphStateResponse)
 async def delete_extension(node_id: int, session: Session = Depends(get_session)):
-    """
-    Delete all ancestors of this node in the same branch (but keep this node).
-    """
+    """Delete all ancestors of this node in the same branch (but keep this node), then return graph state."""
     node = session.get(Node, node_id)
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
 
+    graph_id = node.branch.graph_id
     branch_nodes = sorted(node.branch.nodes, key=lambda n: n.sequence)
     for n in branch_nodes:
         if n.sequence < node.sequence:
             _delete_node_recursive(n, session)
 
     session.commit()
-    return {"detail": f"Extension above node {node_id} deleted (node kept)."}
+    graph = session.get(Graph, graph_id)
+    if not graph:
+        raise HTTPException(status_code=404, detail="Graph not found after deletion")
+    return convert_graph_to_response(graph)
 
 
-@router.delete("/nodes/{node_id}/delete-children")
+@router.post("/nodes/{node_id}/delete-children", response_model=GraphStateResponse)
 async def delete_children(node_id: int, session: Session = Depends(get_session)):
-    """
-    Delete all descendants of this node (but keep this node itself).
-    """
+    """Delete all descendants of this node (but keep this node itself) and return graph state."""
     node = session.get(Node, node_id)
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
 
-    for child_branch in node.sub_branches:
-        for n in child_branch.nodes:
+    graph_id = node.branch.graph_id
+    # Delete all child branches and their nodes
+    for child_branch in list(node.sub_branches):
+        for n in list(child_branch.nodes):
             _delete_node_recursive(n, session)
+        session.delete(child_branch)
 
     session.commit()
-    return {"detail": f"Children of node {node_id} deleted (node kept)."}
+    graph = session.get(Graph, graph_id)
+    if not graph:
+        raise HTTPException(status_code=404, detail="Graph not found after deletion")
+    return convert_graph_to_response(graph)
 
 def _delete_node_recursive(node: Node, session: Session):
     # Delete child branches first

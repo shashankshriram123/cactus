@@ -6,7 +6,7 @@ import type {
   GraphBranch,
   SerializableNode,
   SerializableBranch,
-} from './types';
+} from '../types';
 import { FiPlusCircle, FiEyeOff, FiEye, FiTrash2 } from 'react-icons/fi';
 import { cactusApi } from '../api/cactusApi';
 
@@ -31,7 +31,8 @@ export interface GraphApi {
 interface ControlTreeGraphProps {
   graphState: SerializableGraphState | null;
   onButtonStateChange: (states: any) => void;
-  onGraphUpdate?: (state: SerializableGraphState) => void; // NEW
+  onGraphUpdate?: (state: SerializableGraphState) => void; // server-update callback
+  onEgoChange?: (nodeId: number | null) => void;           // notify App which node is ego
 }
 
 
@@ -56,7 +57,7 @@ const getDescendantBranches = (startNode: GraphNode, allBranches: GraphBranch[])
 
 // --- Main Component ---
 const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
-     ({ graphState, onButtonStateChange }, ref) => {
+     ({ graphState, onButtonStateChange, onGraphUpdate, onEgoChange }, ref) => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -92,13 +93,22 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
   });
     // track current selection so our overlay can enable/disable button
   const [selectedNode, setSelectedNode] = useState<GraphNode|null>(null);
+  const nextSelectNodeIdRef = useRef<number | null>(null);
 
   const syncWithServer = async (
-    action: () => Promise<SerializableGraphState>
+    action: () => Promise<SerializableGraphState>,
+    chooseSelection?: (updated: SerializableGraphState) => number | null,
   ) => {
     try {
       const updated = await action();
       onGraphUpdate?.(updated);
+      if (chooseSelection) {
+        const sel = chooseSelection(updated);
+        if (sel != null) {
+          nextSelectNodeIdRef.current = sel;
+          onEgoChange?.(sel);
+        }
+      }
     } catch (err) {
       console.error('Server sync failed', err);
     }
@@ -137,22 +147,29 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
       return { ...updatedState, camera, nodes: serializableNodes, branches: serializableBranches, branchOrder };
     },
     createSubBranch: () => {
-        if (!selectedNode) return;
-        syncWithServer(() =>
-          cactusApi.createSubBranch(
-            selectedNode.id,
-            'New Branch',
-            'Forked here'
-          )
-        );
-      },
+      if (!selectedNode) return;
+      const anchorId = selectedNode.id;
+      syncWithServer(
+        () => cactusApi.createSubBranch(anchorId, 'New Branch', 'Forked here'),
+        (updated) => {
+          const branches = Object.values(updated.branches || {});
+          const child = branches.find((b: any) => b.parentNodeId === anchorId);
+          return child && child.nodeIds.length > 0 ? child.nodeIds[0] : null;
+        }
+      );
+    },
 
     expandBranch: () => {
-        if (!selectedNode) return;
-        syncWithServer(() =>
-          cactusApi.extendNode(selectedNode.id, 'Extended', 'user')
-        );
-      },
+      if (!selectedNode) return;
+      const anchorId = selectedNode.id;
+      syncWithServer(
+        () => cactusApi.extendNode(anchorId, 'Extended', 'user'),
+        (updated) => {
+          const branch = Object.values(updated.branches || {}).find((b: any) => b.nodeIds.includes(anchorId));
+          return branch ? branch.nodeIds[branch.nodeIds.length - 1] : null;
+        }
+      );
+    },
 
     collapseSelected: () => (canvasRef.current as any)?.collapseSelected(),
     foldSelected: () => (canvasRef.current as any)?.foldSelected(),
@@ -295,14 +312,37 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
             return mouseWorldPos;
         };
 
+        // Define selectNode before any potential calls
+        function selectNode(node: GraphNode | null) {
+            localSelectedNode = node;
+            setSelectedNode(node);
+            onEgoChange?.(node ? node.id : null);
+            if (onButtonStateChange) {
+                onButtonStateChange({});
+            }
+            draw();
+        }
+
         // --- Deserialization ---
         liveGraph.current.state = graphState;
         liveGraph.current.camera = { ...graphState.camera };
         const nodes = new Map<number, GraphNode>(); const branches = new Map<number, GraphBranch>();
         for (const branchId of graphState.branchOrder) { const sBranch = graphState.branches[branchId]; branches.set(sBranch.id, new BranchImpl(sBranch.id, sBranch.label, sBranch.color)); }
         Object.values(graphState.nodes).forEach(sNode => { const parentBranch = Array.from(branches.values()).find(b => graphState.branches[b.id].nodeIds.includes(sNode.id))!; const node = new NodeImpl(sNode.id, sNode.x, sNode.y, parentBranch, sNode.isHead); nodes.set(sNode.id, node); parentBranch.addNode(node); });
-        branches.forEach(branch => { const sBranch = graphState.branches[branch.id]; if (sBranch.parentNodeId) { branch.parentNode = nodes.get(sBranch.parentNodeId) ?? null; } });
+        branches.forEach(branch => {
+            const sBranch = graphState.branches[branch.id];
+            branch.parentNode = sBranch.parentNodeId != null ? (nodes.get(sBranch.parentNodeId) ?? null) : null;
+        });
         liveGraph.current.nodes = nodes; liveGraph.current.branches = graphState.branchOrder.map(id => branches.get(id)!);
+
+        // Apply pending selection (set by server actions) once nodes exist
+        if (nextSelectNodeIdRef.current != null) {
+            const target = nodes.get(nextSelectNodeIdRef.current);
+            nextSelectNodeIdRef.current = null;
+            if (target) {
+                selectNode(target);
+            }
+        }
 
         const relayout = () => {
             const mainBranch = liveGraph.current.branches.find(b => b.parentNode === null);
@@ -310,61 +350,119 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
             const childrenMap = new Map<number, GraphBranch[]>();
             liveGraph.current.branches.forEach(b => {
                 if (b.parentNode) {
-                    const parentId = b.parentNode.branch.id;
-                    if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
-                    childrenMap.get(parentId)!.push(b);
+                    const parentBranchId = b.parentNode.branch.id;
+                    if (!childrenMap.has(parentBranchId)) childrenMap.set(parentBranchId, []);
+                    childrenMap.get(parentBranchId)!.push(b);
                 }
             });
             for (const children of childrenMap.values()) { children.sort((a, b) => a.parentNode!.y - b.parentNode!.y); }
+            // Bias children further right based on how close their parent node is to the root (by y)
+            const mainYValues = mainBranch.nodes.map(n => n.y);
+            const yMin = Math.min(...mainYValues);
+            const yMax = Math.max(...mainYValues);
+            const biasForParent = (parent: GraphNode | null) => {
+                if (!parent) return 0;
+                const denom = Math.max(1, Math.abs(yMax - yMin));
+                const closeness = (parent.y - yMin) / denom; // 0 at top, 1 near root
+                return closeness * GRID_SPACING; // scale to grid spacing
+            };
+
+            // Strong non-overlap guarantee using per-row column occupancy
+            // row = round(y / GRID_SPACING), col = round(x / GRID_SPACING)
+            const occupancy = new Map<number, Set<number>>();
+            const markOccupied = (row: number, col: number) => {
+                if (!occupancy.has(row)) occupancy.set(row, new Set());
+                occupancy.get(row)!.add(col);
+            };
+            const isOccupied = (row: number, col: number) => occupancy.get(row)?.has(col) ?? false;
+
+            // Reserve a branch at (or to the right of) desiredStartX, shifting right until no row conflicts
+            const reserveBranchAtX = (branch: GraphBranch, desiredStartX: number): number => {
+                const visibleNodes = branch.nodes.filter(n => !n.isHidden);
+                if (visibleNodes.length === 0) return desiredStartX;
+                const currentX = visibleNodes[0].x;
+                const baseShift = desiredStartX - currentX;
+
+                let extraCols = 0;
+                // Search for the first non-conflicting column placement
+                while (true) {
+                    let conflict = false;
+                    for (const node of visibleNodes) {
+                        const row = Math.round(node.y / GRID_SPACING);
+                        const tentativeX = node.x + baseShift + extraCols * GRID_SPACING;
+                        const col = Math.round(tentativeX / GRID_SPACING);
+                        if (isOccupied(row, col)) { conflict = true; break; }
+                    }
+                    if (!conflict) break;
+                    extraCols += 1;
+                    if (extraCols > 1000) break; // safety
+                }
+
+                const finalShift = baseShift + extraCols * GRID_SPACING;
+                if (finalShift !== 0) {
+                    branch.nodes.forEach(n => { n.x += finalShift; });
+                }
+                // Mark occupied after shifting
+                visibleNodes.forEach(n => {
+                    const row = Math.round(n.y / GRID_SPACING);
+                    const col = Math.round(n.x / GRID_SPACING);
+                    markOccupied(row, col);
+                });
+                // Return rightmost x among visible nodes
+                return Math.max(...visibleNodes.map(n => n.x));
+            };
+
             function layoutSubtree(branch: GraphBranch, startX: number): number {
                 if (branch.nodes.length === 0) return startX;
-                const currentX = branch.nodes[0].x;
-                const shiftX = startX - currentX;
-                if (shiftX !== 0) { branch.nodes.forEach(node => node.x += shiftX); }
-                let rightmostX = startX;
+
+                // Align new sub-branches vertically near their parent node
+                if (branch.parentNode) {
+                    const visible = branch.nodes.filter(n => !n.isHidden);
+                    if (visible.length > 0) {
+                        const first = visible[0];
+                        // For sub-branch, keep same row as parent; extend only to the right
+                        const desiredY = branch.parentNode.y;
+                        const dy = desiredY - first.y;
+                        if (dy !== 0) {
+                            branch.nodes.forEach(n => { n.y += dy; });
+                        }
+                    }
+                }
+
+                let rightmostX = reserveBranchAtX(branch, startX);
                 const children = childrenMap.get(branch.id) || [];
                 children.forEach(child => {
                     if (!child.isHidden) {
-                        const childStartX = rightmostX + GRID_SPACING;
-                        const subtreeEndX = layoutSubtree(child, childStartX);
-                        rightmostX = subtreeEndX;
+                        const childStartX = rightmostX + GRID_SPACING + biasForParent(child.parentNode);
+                        rightmostX = layoutSubtree(child, childStartX);
                     }
                 });
                 return rightmostX;
             }
-            let currentX = mainBranch.nodes[0].x;
+            // First, reserve the main branch at its current x (registers occupancy)
+            let currentX = reserveBranchAtX(mainBranch, mainBranch.nodes[0].x);
             const rootChildren = childrenMap.get(mainBranch.id) || [];
             rootChildren.forEach(child => {
                 if (!child.isHidden) {
-                    const childStartX = currentX + GRID_SPACING;
-                    const subtreeEndX = layoutSubtree(child, childStartX);
-                    currentX = subtreeEndX;
+                    const childStartX = currentX + GRID_SPACING + biasForParent(child.parentNode);
+                    currentX = layoutSubtree(child, childStartX);
                 }
             });
             draw();
         };
         
         // --- Graph Manipulation Functions ---
-        const selectNode = (node: GraphNode | null) => {
-            localSelectedNode = node;
-            // update our React state so overlay re-renders
-            setSelectedNode(node);
-            // This function prop was missing from the original file's dependencies
-            if (onButtonStateChange) {
-                onButtonStateChange({}); // You might want to pass actual button states here
-            }
-            draw();
-        };
         
         const getNextColor = () => { const state = liveGraph.current.state!; const color = BRANCH_COLORS[state.nextColorIndex]; state.nextColorIndex = (state.nextColorIndex + 1) % BRANCH_COLORS.length; return color; }
         
         const createSubBranch = () => { 
-            if (!localSelectedNode || liveGraph.current.branches.some(b => b.parentNode === localSelectedNode)) return; 
+            if (!localSelectedNode) return; 
+            // Optimistic local sub-branch to the right, same row as parent
             const parentNode = localSelectedNode; 
             const state = liveGraph.current.state!; 
             const newLabel = `Sub-branch ${state.nextBranchId}`;
             const newBranch = new BranchImpl(state.nextBranchId++, newLabel, getNextColor(), parentNode); 
-            const newNode = new NodeImpl(state.nextNodeId++, parentNode.x + NODE_SLOPE_X, parentNode.y + NODE_SLOPE_Y, newBranch, true); 
+            const newNode = new NodeImpl(state.nextNodeId++, parentNode.x + GRID_SPACING, parentNode.y, newBranch, true); 
             newBranch.addNode(newNode); 
             liveGraph.current.branches.push(newBranch); 
             liveGraph.current.nodes.set(newNode.id, newNode); 
@@ -442,7 +540,18 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
 
             if (clickedNode) {
                 selectNode(clickedNode);
+                // Optimistic local sub-branch for immediate feedback
                 createSubBranch();
+                // Persist to server and select canonical node
+                const anchorId = clickedNode.id;
+                syncWithServer(
+                  () => cactusApi.createSubBranch(anchorId, 'New Branch', 'Forked here'),
+                  (updated) => {
+                    const branches = Object.values(updated.branches || {});
+                    const child = branches.find((b: any) => b.parentNodeId === anchorId);
+                    return child && child.nodeIds.length > 0 ? child.nodeIds[0] : null;
+                  }
+                );
             }
         };
 
@@ -739,7 +848,3 @@ const ControlTreeGraph = forwardRef<GraphApi, ControlTreeGraphProps>(
 });
 
 export default ControlTreeGraph;
-
-function onGraphUpdate(updated: SerializableGraphState) {
-  throw new Error('Function not implemented.');
-}
